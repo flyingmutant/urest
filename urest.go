@@ -33,7 +33,7 @@ type Resource interface {
 	Expires() time.Time
 	CacheControl() string
 
-	JSON(url.Values) ([]byte, error)
+	JSON(prefix string, v url.Values) ([]byte, error)
 	Patch(*http.Request) error
 	Do(action string, r *http.Request) error
 }
@@ -72,6 +72,10 @@ func (lrw *loggingResponseWriter) log() {
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
+	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
+		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		lrw := &loggingResponseWriter{w, r, 0, time.Now()}
 
@@ -147,31 +151,31 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 
 func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {
 	if index(res.AllowedMethods(), r.Method) == -1 {
-		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
 	switch r.Method {
 	case "HEAD":
+		setHeaders(res, w)
 		w.WriteHeader(http.StatusOK)
-		writeHeaders(res, w)
 	case "GET":
 		if etag := res.ETag(); etag != "" {
 			if r.Header.Get("If-None-Match") == etag {
+				setHeaders(res, w)
 				w.WriteHeader(http.StatusNotModified)
-				writeHeaders(res, w)
 				return
 			}
 		}
 
-		if data, e := res.JSON(r.URL.Query()); e != nil {
+		if data, e := res.JSON(prefix, r.URL.Query()); e != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(e.Error()))
 		} else {
-			w.WriteHeader(http.StatusOK)
-			writeHeaders(res, w)
+			setHeaders(res, w)
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
 			w.Write(data)
 		}
 	case "POST":
@@ -198,10 +202,9 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(e.Error()))
 			} else {
-				w.WriteHeader(http.StatusCreated)
-				relURL := relativeURL(ch)
-				relURL.Path = prefix + relURL.Path
+				relURL := RelativeURL(prefix, ch)
 				w.Header().Set("Location", r.URL.ResolveReference(relURL).String())
+				w.WriteHeader(http.StatusCreated)
 			}
 		}
 		return
@@ -242,7 +245,7 @@ func index(arr []string, s string) int {
 	return -1
 }
 
-func writeHeaders(res Resource, w http.ResponseWriter) {
+func setHeaders(res Resource, w http.ResponseWriter) {
 	if etag := res.ETag(); etag != "" {
 		w.Header().Set("ETag", etag)
 	}
@@ -252,6 +255,12 @@ func writeHeaders(res Resource, w http.ResponseWriter) {
 	if cc := res.CacheControl(); cc != "" {
 		w.Header().Set("Cache-Control", cc)
 	}
+}
+
+func RelativeURL(prefix string, res Resource) *url.URL {
+	u := relativeURL(res)
+	u.Path = prefix[0:len(prefix)-1] + u.Path
+	return u
 }
 
 func relativeURL(res Resource) *url.URL {

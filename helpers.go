@@ -41,7 +41,7 @@ func (DefaultResourceImpl) CacheControl() string {
 	return ""
 }
 
-func (DefaultResourceImpl) JSON(url.Values) ([]byte, error) {
+func (DefaultResourceImpl) JSON(string, url.Values) ([]byte, error) {
 	return nil, errors.New("Method not implemented")
 }
 

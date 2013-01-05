@@ -151,8 +151,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 		return res, steps
 	}
 
-	// to shut up the compiler
-	return nil, nil
+	panic("unreachable")
 }
 
 func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {

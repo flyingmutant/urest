@@ -286,8 +286,6 @@ func relativeURL(res Resource) *url.URL {
 		res = res.Parent()
 	}
 
-	parts = append(parts, "")
-
 	// I love Go
 	for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
 		parts[i], parts[j] = parts[j], parts[i]

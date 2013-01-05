@@ -27,14 +27,14 @@ func NewRootDefaultResourceImpl() *DefaultResourceImpl {
 	}
 }
 
-func NewChildDefaultResourceImpl(parent *DefaultResourceImpl, pathSegment string) *DefaultResourceImpl {
-	d := NewRootDefaultResourceImpl()
-	d.Parent_ = parent
-	d.PathSegment_ = pathSegment
+func (d *DefaultResourceImpl) AddNewChild(pathSegment string) *DefaultResourceImpl {
+	ch := NewRootDefaultResourceImpl()
+	ch.Parent_ = d
+	ch.PathSegment_ = pathSegment
 
-	parent.Children[pathSegment] = d
+	d.Children[pathSegment] = ch
 
-	return d
+	return ch
 }
 
 func (d *DefaultResourceImpl) Parent() Resource {

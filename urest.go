@@ -54,11 +54,17 @@ type loggingResponseWriter struct {
 	r      *http.Request
 	status int
 	start  time.Time
+	size   int
 }
 
 func (lrw *loggingResponseWriter) WriteHeader(status int) {
 	lrw.ResponseWriter.WriteHeader(status)
 	lrw.status = status
+}
+
+func (lrw *loggingResponseWriter) Write(data []byte) (int, error) {
+	lrw.size += len(data)
+	return lrw.ResponseWriter.Write(data)
 }
 
 func (lrw *loggingResponseWriter) log() {
@@ -72,7 +78,7 @@ func (lrw *loggingResponseWriter) log() {
 
 	methodC := tColor(lrw.r.Method, t_FG_YELLOW)
 
-	log.Printf("[%v] %v %v (%v)", statusC, methodC, lrw.r.RequestURI, dC)
+	log.Printf("[%v] %v %v (%v, %v bytes)", statusC, methodC, lrw.r.RequestURI, dC, lrw.size)
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +87,7 @@ func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, 
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		lrw := &loggingResponseWriter{w, r, http.StatusInternalServerError, time.Now()}
+		lrw := &loggingResponseWriter{w, r, http.StatusInternalServerError, time.Now(), 0}
 
 		w.Header().Set("Server", SERVER)
 

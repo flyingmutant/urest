@@ -40,7 +40,11 @@ func (DefaultResourceImpl) CacheControl() string {
 	return ""
 }
 
-func (DefaultResourceImpl) JSON(string, *http.Request) ([]byte, error) {
+func (DefaultResourceImpl) ContentType() string {
+	return "application/json; charset=utf-8"
+}
+
+func (DefaultResourceImpl) Get(string, *http.Request) ([]byte, error) {
 	return nil, errors.New("Method not implemented")
 }
 

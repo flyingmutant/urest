@@ -35,8 +35,9 @@ type Resource interface {
 	ETag() string
 	Expires() time.Time
 	CacheControl() string
+	ContentType() string
 
-	JSON(prefix string, r *http.Request) ([]byte, error)
+	Get(urlPrefix string, r *http.Request) ([]byte, error)
 	Patch(*http.Request) error
 	Do(action string, r *http.Request) error
 }
@@ -174,12 +175,12 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 
-		if data, e := res.JSON(prefix, r); e != nil {
+		if data, e := res.Get(prefix, r); e != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(e.Error()))
 		} else {
 			setHeaders(res, w)
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.Header().Set("Content-Type", res.ContentType())
 			w.WriteHeader(http.StatusOK)
 			w.Write(data)
 		}

@@ -14,6 +14,8 @@ type DefaultResourceImpl struct {
 	Children        map[string]Resource
 	AllowedMethods_ []string
 	Actions         map[string]ActionFunc
+	ContentType_    string
+	CacheControl_   string
 }
 
 func NewRootDefaultResourceImpl() *DefaultResourceImpl {
@@ -21,6 +23,7 @@ func NewRootDefaultResourceImpl() *DefaultResourceImpl {
 		Children:        make(map[string]Resource),
 		AllowedMethods_: []string{},
 		Actions:         make(map[string]ActionFunc),
+		ContentType_:    "application/json; charset=utf-8",
 	}
 }
 
@@ -69,11 +72,11 @@ func (d *DefaultResourceImpl) Expires() time.Time {
 }
 
 func (d *DefaultResourceImpl) CacheControl() string {
-	return ""
+	return d.CacheControl_
 }
 
 func (d *DefaultResourceImpl) ContentType() string {
-	return "application/json; charset=utf-8"
+	return d.ContentType_
 }
 
 func (d *DefaultResourceImpl) Get(string, *http.Request) ([]byte, error) {

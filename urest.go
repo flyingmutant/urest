@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -89,7 +90,7 @@ func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, 
 	return func(w http.ResponseWriter, r *http.Request) {
 		lrw := &loggingResponseWriter{w, r, http.StatusInternalServerError, time.Now(), 0}
 
-		w.Header().Set("Server", SERVER)
+		w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 
 		defer func() {
 			lrw.log()
@@ -267,7 +268,9 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 
 func AbsoluteURL(r *http.Request, u *url.URL) *url.URL {
 	au := *r.URL
-	au.Host = r.Host
+	if au.Host == "" {
+		au.Host = r.Host
+	}
 
 	return au.ResolveReference(u)
 }

@@ -25,6 +25,10 @@ func (DefaultResourceImpl) AllowedMethods() []string {
 	return []string{}
 }
 
+func (DefaultResourceImpl) AllowedActions() []string {
+	return []string{}
+}
+
 func (DefaultResourceImpl) ETag() string {
 	return ""
 }

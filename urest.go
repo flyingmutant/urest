@@ -13,7 +13,6 @@ const (
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"
 	t_FG_GREEN  = "\x1b[32m"
-	t_FG_BLUE   = "\x1b[34m"
 	t_FG_YELLOW = "\x1b[33m"
 	t_FG_CYAN   = "\x1b[36m"
 )
@@ -28,6 +27,7 @@ type Resource interface {
 	Child(string) Resource
 
 	AllowedMethods() []string
+	AllowedActions() []string
 
 	ETag() string
 	Expires() time.Time
@@ -68,7 +68,7 @@ func (lrw *loggingResponseWriter) log() {
 
 	methodC := tColor(lrw.r.Method, t_FG_YELLOW)
 
-	log.Printf("[%v %v] %v %v (%v)", statusC, http.StatusText(lrw.status), methodC, lrw.r.RequestURI, dC)
+	log.Printf("[%v] %v %v (%v)", statusC, methodC, lrw.r.RequestURI, dC)
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +98,9 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 	}
 
 	steps := strings.Split(r.URL.Path[len(prefix):len(r.URL.Path)], "/")
+	if steps[len(steps)-1] == "" {
+		steps = steps[0 : len(steps)-1]
+	}
 
 	ch, rest := navigate(res, steps)
 	postAction := (*string)(nil)
@@ -113,7 +116,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 }
 
 func navigate(res Resource, steps []string) (Resource, []string) {
-	if len(steps) == 0 || (len(steps) == 1 && steps[0] == "") {
+	if len(steps) == 0 {
 		return res, []string{}
 	}
 
@@ -130,12 +133,12 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 		}
 		return navigate(ch, rest)
 	} else {
-		if len(rest) != 1 {
-			return nil, rest
+		if len(rest) != 0 {
+			return nil, steps
 		}
 
 		// custom POST action
-		return res, rest
+		return res, steps
 	}
 
 	// to shut up the compiler
@@ -143,15 +146,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 }
 
 func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {
-	methodAllowed := false
-	for _, m := range res.AllowedMethods() {
-		if m == r.Method {
-			methodAllowed = true
-			break
-		}
-	}
-
-	if !methodAllowed {
+	if index(res.AllowedMethods(), r.Method) == -1 {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		return
@@ -181,6 +176,11 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 	case "POST":
 		if postAction != nil {
+			if index(res.AllowedActions(), *postAction) == -1 {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
 			if e := res.Do(*postAction, r); e != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(e.Error()))
@@ -231,6 +231,15 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			w.WriteHeader(http.StatusNoContent)
 		}
 	}
+}
+
+func index(arr []string, s string) int {
+	for i, e := range arr {
+		if e == s {
+			return i
+		}
+	}
+	return -1
 }
 
 func writeHeaders(res Resource, w http.ResponseWriter) {

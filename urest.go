@@ -15,12 +15,10 @@ import (
 	"time"
 )
 
-type Matcher func(Resource, string) Resource
-
 type Resource interface {
 	Parent() Resource
 	PathSegment() string
-	Matchers() []Matcher
+	Child(string) Resource
 
 	AllowedMethods() []string
 
@@ -85,7 +83,10 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 		panic("Empty non-last step during navigation")
 	}
 
-	if ch := child(res, head); ch != nil {
+	if ch := res.Child(head); ch != nil {
+		if ch.PathSegment() != head {
+			panic(fmt.Sprintf("Resource '%v' has wrong path segment ('%v' / '%v')", relativeURL(ch), ch.PathSegment(), head))
+		}
 		return navigate(ch, rest)
 	} else {
 		if len(rest) != 1 {
@@ -98,19 +99,6 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 
 	// to shut up the compiler
 	return nil, nil
-}
-
-func child(res Resource, pathSegment string) Resource {
-	for _, m := range res.Matchers() {
-		if ret := m(res, pathSegment); ret != nil {
-			if ret.PathSegment() != pathSegment {
-				panic(fmt.Sprintf("Resource '%v' has wrong path segment ('%v' / '%v')", relativeURL(ret), ret.PathSegment(), pathSegment))
-			}
-			return ret
-		}
-	}
-
-	return nil
 }
 
 func handle(res Resource, rest []string, prefix string, w http.ResponseWriter, r *http.Request) {

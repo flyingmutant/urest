@@ -32,6 +32,16 @@ type Collection interface {
 	Remove(string) error
 }
 
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	*http.Request
+}
+
+func (lrw *loggingResponseWrter) WriteHeader(status int) {
+	lrw.ResponseWriter.WriteHeader(status)
+	log.Printf("%v %v: %v %v", lrw.Request.Method, lrw.Request.RequestURI, status, http.StatusText(status))
+}
+
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -41,7 +51,9 @@ func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, 
 			}
 		}()
 
-		handleWithPrefix(res, prefix, w, r)
+		lrw := &loggingResponseWriter{w, r}
+
+		handleWithPrefix(res, prefix, lrw, r)
 	}
 }
 

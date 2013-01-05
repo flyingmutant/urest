@@ -9,6 +9,19 @@ import (
 	"time"
 )
 
+const (
+	t_RESET     = "\x1b[0m"
+	t_FG_RED    = "\x1b[31m"
+	t_FG_GREEN  = "\x1b[32m"
+	t_FG_BLUE   = "\x1b[34m"
+	t_FG_YELLOW = "\x1b[33m"
+	t_FG_CYAN   = "\x1b[36m"
+)
+
+func tColor(s string, color string) string {
+	return color + s + t_RESET
+}
+
 type Resource interface {
 	Parent() Resource
 	PathSegment() string
@@ -34,24 +47,42 @@ type Collection interface {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
-	r *http.Request
+	r      *http.Request
+	status int
+	start  time.Time
 }
 
 func (lrw *loggingResponseWriter) WriteHeader(status int) {
 	lrw.ResponseWriter.WriteHeader(status)
-	log.Printf("%v %v: %v %v", lrw.r.Method, lrw.r.RequestURI, status, http.StatusText(status))
+	lrw.status = status
+}
+
+func (lrw *loggingResponseWriter) log() {
+	d := time.Now().Sub(lrw.start)
+	dC := tColor(fmt.Sprintf("%v", d), t_FG_CYAN)
+
+	statusC := tColor(fmt.Sprintf("%v", lrw.status), t_FG_GREEN)
+	if lrw.status >= 400 {
+		statusC = tColor(fmt.Sprintf("%v", lrw.status), t_FG_RED)
+	}
+
+	methodC := tColor(lrw.r.Method, t_FG_YELLOW)
+
+	log.Printf("[%v %v] %v %v (%v)", statusC, http.StatusText(lrw.status), methodC, lrw.r.RequestURI, dC)
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		lrw := &loggingResponseWriter{w, r, 0, time.Now()}
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Printf("Error while serving %v %v: %v", r.Method, r.RequestURI, rec)
 				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				lrw.log()
 			}
 		}()
-
-		lrw := &loggingResponseWriter{w, r}
 
 		handleWithPrefix(res, prefix, lrw, r)
 	}
@@ -128,6 +159,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 
 	switch r.Method {
 	case "HEAD":
+		w.WriteHeader(http.StatusOK)
 		writeHeaders(res, w)
 	case "GET":
 		if etag := res.ETag(); etag != "" {
@@ -142,6 +174,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(e.Error()))
 		} else {
+			w.WriteHeader(http.StatusOK)
 			writeHeaders(res, w)
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.Write(data)

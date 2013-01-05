@@ -9,6 +9,18 @@ import (
 
 type DefaultResourceImpl struct{}
 
+func (DefaultResourceImpl) Parent() Resource {
+	return nil
+}
+
+func (DefaultResourceImpl) PathSegment() string {
+	return ""
+}
+
+func (DefaultResourceImpl) Child(string) Resource {
+	return nil
+}
+
 func (DefaultResourceImpl) AllowedMethods() []string {
 	return []string{}
 }

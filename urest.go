@@ -1,16 +1,10 @@
 package urest
 
-// TODO
-// - predefined Cache-Control strings
-
-// TODO struct with default impl of resource methods
-
 import (
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	// "strconv"
 	"strings"
 	"time"
 )
@@ -63,12 +57,16 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 	steps := strings.Split(r.URL.Path[len(prefix):len(r.URL.Path)], "/")
 
 	ch, rest := navigate(res, steps)
-	if ch == nil {
+	postAction := (*string)(nil)
+	if len(rest) > 0 {
+		postAction = &rest[0]
+	}
+	if ch == nil || (r.Method != "POST" && postAction != nil) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	handle(ch, rest, prefix, w, r)
+	handle(ch, postAction, prefix, w, r)
 }
 
 func navigate(res Resource, steps []string) (Resource, []string) {
@@ -101,7 +99,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 	return nil, nil
 }
 
-func handle(res Resource, rest []string, prefix string, w http.ResponseWriter, r *http.Request) {
+func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {
 	methodAllowed := false
 	for _, m := range res.AllowedMethods() {
 		if m == r.Method {
@@ -137,8 +135,8 @@ func handle(res Resource, rest []string, prefix string, w http.ResponseWriter, r
 			w.Write(data)
 		}
 	case "POST":
-		if len(rest) == 1 {
-			if e := res.Do(rest[0], r); e != nil {
+		if postAction != nil {
+			if e := res.Do(*postAction, r); e != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(e.Error()))
 			} else {

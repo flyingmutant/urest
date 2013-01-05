@@ -34,12 +34,12 @@ type Collection interface {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
-	*http.Request
+	r *http.Request
 }
 
-func (lrw *loggingResponseWrter) WriteHeader(status int) {
+func (lrw *loggingResponseWriter) WriteHeader(status int) {
 	lrw.ResponseWriter.WriteHeader(status)
-	log.Printf("%v %v: %v %v", lrw.Request.Method, lrw.Request.RequestURI, status, http.StatusText(status))
+	log.Printf("%v %v: %v %v", lrw.r.Method, lrw.r.RequestURI, status, http.StatusText(status))
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {

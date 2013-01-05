@@ -3,7 +3,6 @@ package urest
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -41,7 +40,7 @@ func (DefaultResourceImpl) CacheControl() string {
 	return ""
 }
 
-func (DefaultResourceImpl) JSON(string, url.Values) ([]byte, error) {
+func (DefaultResourceImpl) JSON(string, *http.Request) ([]byte, error) {
 	return nil, errors.New("Method not implemented")
 }
 

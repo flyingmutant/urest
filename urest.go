@@ -33,7 +33,7 @@ type Resource interface {
 	Expires() time.Time
 	CacheControl() string
 
-	JSON(prefix string, v url.Values) ([]byte, error)
+	JSON(prefix string, r *http.Request) ([]byte, error)
 	Patch(*http.Request) error
 	Do(action string, r *http.Request) error
 }
@@ -169,7 +169,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 
-		if data, e := res.JSON(prefix, r.URL.Query()); e != nil {
+		if data, e := res.JSON(prefix, r); e != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(e.Error()))
 		} else {
@@ -202,8 +202,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(e.Error()))
 			} else {
-				relURL := RelativeURL(prefix, ch)
-				w.Header().Set("Location", r.URL.ResolveReference(relURL).String())
+				w.Header().Set("Location", AbsoluteURL(r, RelativeURL(prefix, ch)).String())
 				w.WriteHeader(http.StatusCreated)
 			}
 		}
@@ -255,6 +254,13 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 	if cc := res.CacheControl(); cc != "" {
 		w.Header().Set("Cache-Control", cc)
 	}
+}
+
+func AbsoluteURL(r *http.Request, u *url.URL) *url.URL {
+	au := *r.URL
+	au.Host = r.Host
+
+	return au.ResolveReference(u)
 }
 
 func RelativeURL(prefix string, res Resource) *url.URL {

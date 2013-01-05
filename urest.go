@@ -195,8 +195,8 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				w.WriteHeader(http.StatusNoContent)
 			}
 		} else {
-			coll := res.(Collection)
-			if coll == nil {
+			coll, ok := res.(Collection)
+			if !ok {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -223,8 +223,8 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			return
 		}
 
-		coll := res.Parent().(Collection)
-		if coll == nil {
+		coll, ok := res.Parent().(Collection)
+		if !ok {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}

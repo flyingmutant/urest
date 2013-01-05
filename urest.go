@@ -5,11 +5,14 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"time"
 )
 
 const (
+	SERVER = "uREST/0.1"
+
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"
 	t_FG_GREEN  = "\x1b[32m"
@@ -79,9 +82,12 @@ func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, 
 	return func(w http.ResponseWriter, r *http.Request) {
 		lrw := &loggingResponseWriter{w, r, 0, time.Now()}
 
+		w.Header().Set("Server", SERVER)
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Printf("Error while serving %v %v: %v", r.Method, r.RequestURI, rec)
+				debug.PrintStack()
 				w.WriteHeader(http.StatusInternalServerError)
 			} else {
 				lrw.log()

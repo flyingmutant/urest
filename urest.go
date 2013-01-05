@@ -142,16 +142,14 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 			panic(fmt.Sprintf("Resource '%v' has wrong path segment ('%v' / '%v')", relativeURL(ch), ch.PathSegment(), head))
 		}
 		return navigate(ch, rest)
-	} else {
-		if len(rest) != 0 {
-			return nil, steps
-		}
-
-		// custom POST action
-		return res, steps
 	}
 
-	panic("unreachable")
+	if len(rest) != 0 {
+		return nil, steps
+	}
+
+	// custom POST action
+	return res, steps
 }
 
 func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {

@@ -150,10 +150,11 @@ func handle(res Resource, rest []string, prefix string, w http.ResponseWriter, r
 		}
 	case "POST":
 		if len(rest) == 1 {
-			e := res.Do(rest[0], r)
-			if e != nil {
+			if e := res.Do(rest[0], r); e != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(e.Error()))
+			} else {
+				w.WriteHeader(http.StatusNoContent)
 			}
 		} else {
 			coll := res.(Collection)
@@ -172,8 +173,14 @@ func handle(res Resource, rest []string, prefix string, w http.ResponseWriter, r
 				w.Header().Set("Location", r.URL.ResolveReference(relURL).String())
 			}
 		}
+		return
 	case "PATCH":
-		// TODO
+		if e := res.Patch(r); e != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(e.Error()))
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+		}
 	case "DELETE":
 		if res.Parent() == nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -189,6 +196,8 @@ func handle(res Resource, rest []string, prefix string, w http.ResponseWriter, r
 		if e := coll.Remove(res.PathSegment()); e != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(e.Error()))
+		} else {
+			w.WriteHeader(http.StatusNoContent)
 		}
 	}
 }

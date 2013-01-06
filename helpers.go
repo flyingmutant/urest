@@ -1,7 +1,6 @@
 package urest
 
 import (
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -48,17 +47,17 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bo
 			return time.Time{}
 		},
 		GetFunc: func(string, *http.Request) ([]byte, error) {
-			return nil, errors.New("Not implemented")
+			panic("Not implemented")
 		},
 		PatchFunc: func(*http.Request) error {
-			return errors.New("Not implemented")
+			panic("Not implemented")
 		},
 		IsCollection_: isCollection,
 		CreateFunc: func(*http.Request) (Resource, error) {
-			return nil, errors.New("Not implemented")
+			panic("Not implemented")
 		},
 		RemoveFunc: func(string) error {
-			return errors.New("Not implemented")
+			panic("Not implemented")
 		},
 	}
 }
@@ -118,7 +117,7 @@ func (d *DefaultResourceImpl) Do(action string, r *http.Request) error {
 		return a(r)
 	}
 
-	return errors.New("Action not supported")
+	panic("Not implemented")
 }
 
 func (d *DefaultResourceImpl) IsCollection() bool {

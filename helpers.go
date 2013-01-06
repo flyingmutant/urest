@@ -2,6 +2,7 @@ package urest
 
 import (
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -9,6 +10,12 @@ import (
 const (
 	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
 )
+
+func ReadBody(r *http.Request) ([]byte, error) {
+	defer r.Body.Close()
+
+	return ioutil.ReadAll(r.Body)
+}
 
 type DefaultResourceImpl struct {
 	Parent_         Resource

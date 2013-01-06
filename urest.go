@@ -321,6 +321,12 @@ func AbsoluteURL(r *http.Request, prefix string, res Resource) *url.URL {
 		au.Host = r.Host
 	}
 
+	if r.TLS == nil {
+		au.Scheme = "http"
+	} else {
+		au.Scheme = "https"
+	}
+
 	u := RelativeURL(prefix, res)
 
 	return au.ResolveReference(u)

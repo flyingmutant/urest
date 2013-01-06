@@ -1,5 +1,9 @@
 package urest
 
+// TODO
+// - filesystem resource
+// - Go runtime debug resource
+
 import (
 	"fmt"
 	"log"
@@ -41,6 +45,8 @@ type Resource interface {
 	Get(urlPrefix string, r *http.Request) ([]byte, error)
 	Patch(*http.Request) error
 	Do(action string, r *http.Request) error
+
+	IsCollection() bool
 }
 
 type Collection interface {
@@ -110,21 +116,43 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(res)))
 	}
 
-	if r.URL.Path[0:len(prefix)] != prefix {
+	if r.URL.Path[:len(prefix)] != prefix {
 		panic(fmt.Sprintf("Prefix '%v' does not match request URL path '%v'", prefix, r.URL.Path))
 	}
 
-	steps := strings.Split(r.URL.Path[len(prefix):len(r.URL.Path)], "/")
-	if steps[len(steps)-1] == "" {
-		steps = steps[0 : len(steps)-1]
+	steps := strings.Split(r.URL.Path[len(prefix):], "/")
+	if len(steps) == 1 && steps[0] == "" {
+		steps = []string{}
 	}
 
 	ch, rest := navigate(res, steps)
+	if ch == nil {
+		if rest == nil {
+			u := requestURL(r)
+			u.Path += "/"
+			w.Header().Set("Location", u.String())
+			w.WriteHeader(http.StatusMovedPermanently)
+			return
+		}
+
+		if len(rest) == 1 && rest[0] == "" {
+			u := requestURL(r)
+			u.Path = u.Path[:len(u.Path)-1]
+			w.Header().Set("Location", u.String())
+			w.WriteHeader(http.StatusMovedPermanently)
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
 	postAction := (*string)(nil)
 	if len(rest) > 0 {
 		postAction = &rest[0]
 	}
-	if ch == nil || (r.Method != "POST" && postAction != nil) {
+
+	if r.Method != "POST" && postAction != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -134,14 +162,28 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 
 func navigate(res Resource, steps []string) (Resource, []string) {
 	if len(steps) == 0 {
-		return res, []string{}
+		if res.IsCollection() {
+			// collection URL without a trailing '/'
+			return nil, nil
+		} else {
+			return res, []string{}
+		}
 	}
 
 	head := steps[0]
-	rest := steps[1:len(steps)]
+	rest := steps[1:]
 
 	if head == "" {
-		panic("Empty non-last step during navigation")
+		if len(rest) != 0 {
+			panic("Empty non-last step during navigation")
+		}
+
+		if res.IsCollection() {
+			// collection URL with a trailing '/'
+			return res, []string{}
+		} else {
+			return nil, []string{""}
+		}
 	}
 
 	if ch := res.Child(head); ch != nil {
@@ -156,7 +198,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 	}
 
 	// custom POST action
-	return res, steps
+	return res, []string{head}
 }
 
 func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {
@@ -184,7 +226,9 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			w.Write([]byte(e.Error()))
 		} else {
 			setHeaders(res, w)
-			w.Header().Set("Content-Type", res.ContentType())
+			if ct := res.ContentType(); ct != "" {
+				w.Header().Set("Content-Type", ct)
+			}
 			w.WriteHeader(http.StatusOK)
 			w.Write(data)
 		}
@@ -202,13 +246,12 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				w.WriteHeader(http.StatusNoContent)
 			}
 		} else {
-			coll, ok := res.(Collection)
-			if !ok {
+			if !res.IsCollection() {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 
-			if ch, e := coll.Create(r); e != nil {
+			if ch, e := res.(Collection).Create(r); e != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(e.Error()))
 			} else {
@@ -230,13 +273,12 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			return
 		}
 
-		coll, ok := res.Parent().(Collection)
-		if !ok {
+		if !res.Parent().IsCollection() {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		if e := coll.Remove(res.PathSegment()); e != nil {
+		if e := res.Parent().(Collection).Remove(res.PathSegment()); e != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(e.Error()))
 		} else {
@@ -267,22 +309,27 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 }
 
 func AbsoluteURL(r *http.Request, u *url.URL) *url.URL {
-	au := *r.URL
-	if au.Host == "" {
-		au.Host = r.Host
-	}
-
-	return au.ResolveReference(u)
+	return requestURL(r).ResolveReference(u)
 }
 
 func RelativeURL(prefix string, res Resource) *url.URL {
 	u := relativeURL(res)
-	u.Path = prefix[0:len(prefix)-1] + u.Path
+	u.Path = prefix[:len(prefix)-1] + u.Path
 	return u
+}
+
+func requestURL(r *http.Request) *url.URL {
+	u := *r.URL
+	if u.Host == "" {
+		u.Host = r.Host
+	}
+
+	return &u
 }
 
 func relativeURL(res Resource) *url.URL {
 	parts := make([]string, 0)
+	isColl := res.IsCollection()
 
 	for res != nil {
 		parts = append(parts, res.PathSegment())
@@ -294,7 +341,10 @@ func relativeURL(res Resource) *url.URL {
 		parts[i], parts[j] = parts[j], parts[i]
 	}
 
-	return &url.URL{
-		Path: strings.Join(parts, "/"),
+	path := strings.Join(parts, "/")
+	if isColl {
+		path = path + "/"
 	}
+
+	return &url.URL{Path: path}
 }

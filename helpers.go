@@ -6,35 +6,54 @@ import (
 	"time"
 )
 
-type ActionFunc func(r *http.Request) error
+const (
+	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
+)
 
 type DefaultResourceImpl struct {
 	Parent_         Resource
 	PathSegment_    string
 	Children        map[string]Resource
 	AllowedMethods_ []string
-	Actions         map[string]ActionFunc
+	Actions         map[string]func(*http.Request) error
+	ETagFunc        func() string
+	ExpiresFunc     func() time.Time
 	ContentType_    string
 	CacheControl_   string
+	GetFunc         func(string, *http.Request) ([]byte, error)
+	PatchFunc       func(*http.Request) error
+	IsCollection_   bool
+	CreateFunc      func(*http.Request) (Resource, error)
+	RemoveFunc      func(string) error
 }
 
-func NewRootDefaultResourceImpl() *DefaultResourceImpl {
+func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bool) *DefaultResourceImpl {
 	return &DefaultResourceImpl{
+		Parent_:         parent,
+		PathSegment_:    pathSegment,
 		Children:        make(map[string]Resource),
 		AllowedMethods_: []string{},
-		Actions:         make(map[string]ActionFunc),
-		ContentType_:    "application/json; charset=utf-8",
+		Actions:         make(map[string]func(*http.Request) error),
+		ETagFunc: func() string {
+			return ""
+		},
+		ExpiresFunc: func() time.Time {
+			return time.Time{}
+		},
+		GetFunc: func(string, *http.Request) ([]byte, error) {
+			return nil, errors.New("Not implemented")
+		},
+		PatchFunc: func(*http.Request) error {
+			return errors.New("Not implemented")
+		},
+		IsCollection_: isCollection,
+		CreateFunc: func(*http.Request) (Resource, error) {
+			return nil, errors.New("Not implemented")
+		},
+		RemoveFunc: func(string) error {
+			return errors.New("Not implemented")
+		},
 	}
-}
-
-func (d *DefaultResourceImpl) AddNewChild(pathSegment string) *DefaultResourceImpl {
-	ch := NewRootDefaultResourceImpl()
-	ch.Parent_ = d
-	ch.PathSegment_ = pathSegment
-
-	d.Children[pathSegment] = ch
-
-	return ch
 }
 
 func (d *DefaultResourceImpl) Parent() Resource {
@@ -64,11 +83,11 @@ func (d *DefaultResourceImpl) AllowedActions() []string {
 }
 
 func (d *DefaultResourceImpl) ETag() string {
-	return ""
+	return d.ETagFunc()
 }
 
 func (d *DefaultResourceImpl) Expires() time.Time {
-	return time.Time{}
+	return d.ExpiresFunc()
 }
 
 func (d *DefaultResourceImpl) CacheControl() string {
@@ -79,12 +98,12 @@ func (d *DefaultResourceImpl) ContentType() string {
 	return d.ContentType_
 }
 
-func (d *DefaultResourceImpl) Get(string, *http.Request) ([]byte, error) {
-	return nil, errors.New("Not implemented")
+func (d *DefaultResourceImpl) Get(urlPrefix string, r *http.Request) ([]byte, error) {
+	return d.GetFunc(urlPrefix, r)
 }
 
-func (d *DefaultResourceImpl) Patch(*http.Request) error {
-	return errors.New("Not implemented")
+func (d *DefaultResourceImpl) Patch(r *http.Request) error {
+	return d.PatchFunc(r)
 }
 
 func (d *DefaultResourceImpl) Do(action string, r *http.Request) error {
@@ -93,4 +112,16 @@ func (d *DefaultResourceImpl) Do(action string, r *http.Request) error {
 	}
 
 	return errors.New("Action not supported")
+}
+
+func (d *DefaultResourceImpl) IsCollection() bool {
+	return d.IsCollection_
+}
+
+func (d *DefaultResourceImpl) Create(r *http.Request) (Resource, error) {
+	return d.CreateFunc(r)
+}
+
+func (d *DefaultResourceImpl) Remove(s string) error {
+	return d.RemoveFunc(s)
 }

@@ -78,14 +78,21 @@ func (lrw *loggingResponseWriter) log() {
 	d := time.Now().Sub(lrw.start)
 	dC := tColor(fmt.Sprintf("%v", d), t_FG_CYAN)
 
-	statusC := tColor(fmt.Sprintf("%v", lrw.status), t_FG_GREEN)
-	if lrw.status >= 400 {
+	statusC := fmt.Sprintf("%v", lrw.status)
+	if lrw.status >= 200 && lrw.status < 300 {
+		statusC = tColor(statusC, t_FG_GREEN)
+	} else if lrw.status >= 400 {
 		statusC = tColor(fmt.Sprintf("%v", lrw.status), t_FG_RED)
 	}
 
 	methodC := tColor(lrw.r.Method, t_FG_YELLOW)
 
-	log.Printf("[%v] %v %v (%v, %v bytes)", statusC, methodC, lrw.r.RequestURI, dC, lrw.size)
+	sizeS := ""
+	if lrw.size != 0 {
+		sizeS = fmt.Sprintf(", %v bytes", lrw.size)
+	}
+
+	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, lrw.r.RequestURI, dC, sizeS)
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {

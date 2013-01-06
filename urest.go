@@ -308,11 +308,13 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 	}
 }
 
-func AbsoluteURL(r *http.Request, u *url.URL) *url.URL {
+func AbsoluteURL(r *http.Request, prefix string, res Resource) *url.URL {
 	au := *r.URL
 	if au.Host == "" {
 		au.Host = r.Host
 	}
+
+	u := RelativeURL(prefix, res)
 
 	return au.ResolveReference(u)
 }

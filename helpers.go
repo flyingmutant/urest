@@ -33,32 +33,21 @@ type DefaultResourceImpl struct {
 	RemoveFunc      func(string) error
 }
 
-func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bool) *DefaultResourceImpl {
+func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bool, contentType string) *DefaultResourceImpl {
 	return &DefaultResourceImpl{
 		Parent_:         parent,
 		PathSegment_:    pathSegment,
 		Children:        make(map[string]Resource),
 		AllowedMethods_: []string{},
 		Actions:         make(map[string]func(*http.Request) error),
-		ETagFunc: func() string {
-			return ""
-		},
-		ExpiresFunc: func() time.Time {
-			return time.Time{}
-		},
-		GetFunc: func(string, *http.Request) ([]byte, error) {
-			panic("Not implemented")
-		},
-		PatchFunc: func(*http.Request) error {
-			panic("Not implemented")
-		},
-		IsCollection_: isCollection,
-		CreateFunc: func(*http.Request) (Resource, error) {
-			panic("Not implemented")
-		},
-		RemoveFunc: func(string) error {
-			panic("Not implemented")
-		},
+		ETagFunc:        func() string { return "" },
+		ExpiresFunc:     func() time.Time { return time.Time{} },
+		ContentType_:    contentType,
+		GetFunc:         func(string, *http.Request) ([]byte, error) { panic("Not implemented") },
+		PatchFunc:       func(*http.Request) error { panic("Not implemented") },
+		IsCollection_:   isCollection,
+		CreateFunc:      func(*http.Request) (Resource, error) { panic("Not implemented") },
+		RemoveFunc:      func(string) error { panic("Not implemented") },
 	}
 }
 

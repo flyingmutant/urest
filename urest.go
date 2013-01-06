@@ -128,7 +128,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 	ch, rest := navigate(res, steps)
 	if ch == nil {
 		if rest == nil {
-			u := requestURL(r)
+			u := *r.URL
 			u.Path += "/"
 			w.Header().Set("Location", u.String())
 			w.WriteHeader(http.StatusMovedPermanently)
@@ -136,7 +136,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 		}
 
 		if len(rest) == 1 && rest[0] == "" {
-			u := requestURL(r)
+			u := *r.URL
 			u.Path = u.Path[:len(u.Path)-1]
 			w.Header().Set("Location", u.String())
 			w.WriteHeader(http.StatusMovedPermanently)
@@ -255,7 +255,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(e.Error()))
 			} else {
-				w.Header().Set("Location", AbsoluteURL(r, RelativeURL(prefix, ch)).String())
+				w.Header().Set("Location", RelativeURL(prefix, ch).String())
 				w.WriteHeader(http.StatusCreated)
 			}
 		}
@@ -309,22 +309,18 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 }
 
 func AbsoluteURL(r *http.Request, u *url.URL) *url.URL {
-	return requestURL(r).ResolveReference(u)
+	au := *r.URL
+	if au.Host == "" {
+		au.Host = r.Host
+	}
+
+	return au.ResolveReference(u)
 }
 
 func RelativeURL(prefix string, res Resource) *url.URL {
 	u := relativeURL(res)
 	u.Path = prefix[:len(prefix)-1] + u.Path
 	return u
-}
-
-func requestURL(r *http.Request) *url.URL {
-	u := *r.URL
-	if u.Host == "" {
-		u.Host = r.Host
-	}
-
-	return &u
 }
 
 func relativeURL(res Resource) *url.URL {

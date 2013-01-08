@@ -220,6 +220,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 	switch r.Method {
 	case "HEAD":
 		setHeaders(res, w)
+		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		w.WriteHeader(http.StatusOK)
 	case "GET":
 		if etag := res.ETag(); etag != "" {

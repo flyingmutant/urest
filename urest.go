@@ -1,13 +1,16 @@
 package urest
 
 // TODO
+// - filesystem resource
+// - Go runtime debug resource
+
+// TOTHINK
+// - pass the resource/id chain to the target resource
 // - declarative configuration with explicit URL schema
-//   maybe even include JSON structures into the configuration?
+//   maybe even include JSON structures into the configuration
 // - search resources not by recursive descent but by collecting all IDs
 //   and performing single findX(id1, id2, …) call
 // - treat resource "members" as resources, too
-// - filesystem resource
-// - Go runtime debug resource
 
 import (
 	"compress/gzip"

@@ -42,6 +42,7 @@ type Resource interface {
 	Expires() time.Time
 	CacheControl() string
 	ContentType() string
+	Gzip() bool
 
 	Get(urlPrefix string, r *http.Request) ([]byte, error)
 	Patch(*http.Request) error
@@ -94,29 +95,6 @@ func (lrw *loggingResponseWriter) log() {
 	}
 
 	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, lrw.r.RequestURI, dC, sizeS)
-}
-
-// Until better times — http://nf.id.au/roll-your-own-gzip-encoded-http-handler
-func MakeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			fn(w, r)
-			return
-		}
-		w.Header().Set("Content-Encoding", "gzip")
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		fn(gzipResponseWriter{gz, w}, r)
-	}
-}
-
-type gzipResponseWriter struct {
-	gz *gzip.Writer
-	http.ResponseWriter
-}
-
-func (w gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.gz.Write(b)
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
@@ -259,8 +237,16 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			if ct := res.ContentType(); ct != "" {
 				w.Header().Set("Content-Type", ct)
 			}
-			w.WriteHeader(http.StatusOK)
-			w.Write(data)
+			if res.Gzip() && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+				gz := gzip.NewWriter(w)
+				defer gz.Close()
+				w.Header().Set("Content-Encoding", "gzip")
+				w.WriteHeader(http.StatusOK)
+				gz.Write(data)
+			} else {
+				w.WriteHeader(http.StatusOK)
+				w.Write(data)
+			}
 		}
 	case "POST":
 		if postAction != nil {

@@ -25,6 +25,7 @@ type DefaultResourceImpl struct {
 	ETagFunc        func() string
 	ExpiresFunc     func() time.Time
 	ContentType_    string
+	Gzip_           bool
 	CacheControl_   string
 	GetFunc         func(string, *http.Request) ([]byte, error)
 	PatchFunc       func(*http.Request) error
@@ -43,6 +44,7 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bo
 		ETagFunc:        func() string { return "" },
 		ExpiresFunc:     func() time.Time { return time.Time{} },
 		ContentType_:    contentType,
+		Gzip_:           false,
 		GetFunc:         func(string, *http.Request) ([]byte, error) { panic("Not implemented") },
 		PatchFunc:       func(*http.Request) error { panic("Not implemented") },
 		IsCollection_:   isCollection,
@@ -91,6 +93,10 @@ func (d *DefaultResourceImpl) CacheControl() string {
 
 func (d *DefaultResourceImpl) ContentType() string {
 	return d.ContentType_
+}
+
+func (d *DefaultResourceImpl) Gzip() bool {
+	return d.Gzip_
 }
 
 func (d *DefaultResourceImpl) Get(urlPrefix string, r *http.Request) ([]byte, error) {

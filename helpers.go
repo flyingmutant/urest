@@ -39,7 +39,7 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bo
 		Parent_:         parent,
 		PathSegment_:    pathSegment,
 		Children:        make(map[string]Resource),
-		AllowedMethods_: []string{},
+		AllowedMethods_: []string{"HEAD"},
 		Actions:         make(map[string]func(*http.Request) error),
 		ETagFunc:        func() string { return "" },
 		ExpiresFunc:     func() time.Time { return time.Time{} },

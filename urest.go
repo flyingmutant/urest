@@ -1,6 +1,10 @@
 package urest
 
 // TODO
+// - configuration with explicit URL schema
+// - search resources not by recursive descent but by collecting all IDs
+//   and performing single findX(id1, id2, …) call
+// - treat resource "members" as resources, too
 // - filesystem resource
 // - Go runtime debug resource
 

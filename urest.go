@@ -5,6 +5,7 @@ package urest
 // - Go runtime debug resource
 
 import (
+	"compress/gzip"
 	"fmt"
 	"log"
 	"net/http"
@@ -95,6 +96,29 @@ func (lrw *loggingResponseWriter) log() {
 	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, lrw.r.RequestURI, dC, sizeS)
 }
 
+// Until better times — http://nf.id.au/roll-your-own-gzip-encoded-http-handler
+func MakeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fn(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		fn(gzipResponseWriter{gz, w}, r)
+	}
+}
+
+type gzipResponseWriter struct {
+	gz *gzip.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.gz.Write(b)
+}
+
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
@@ -110,7 +134,7 @@ func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, 
 			if rec := recover(); rec != nil {
 				log.Printf("Panic: %v", rec)
 				debug.PrintStack()
-				w.WriteHeader(http.StatusInternalServerError)
+				http.Error(w, "Server panic", http.StatusInternalServerError)
 			}
 		}()
 
@@ -160,7 +184,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 	}
 
 	if r.Method != "POST" && postAction != nil {
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, "Non-POST action", http.StatusNotFound)
 		return
 	}
 
@@ -229,8 +253,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 
 		if data, e := res.Get(prefix, r); e != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(e.Error()))
+			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			setHeaders(res, w)
 			if ct := res.ContentType(); ct != "" {
@@ -242,25 +265,23 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 	case "POST":
 		if postAction != nil {
 			if index(res.AllowedActions(), *postAction) == -1 {
-				w.WriteHeader(http.StatusBadRequest)
+				http.Error(w, "Unknown action", http.StatusBadRequest)
 				return
 			}
 
 			if e := res.Do(*postAction, r); e != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(e.Error()))
+				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 			}
 		} else {
 			if !res.IsCollection() {
-				w.WriteHeader(http.StatusBadRequest)
+				http.Error(w, "Not a collection", http.StatusBadRequest)
 				return
 			}
 
 			if ch, e := res.(Collection).Create(r); e != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(e.Error()))
+				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.Header().Set("Location", RelativeURL(prefix, ch).String())
 				w.WriteHeader(http.StatusCreated)
@@ -269,25 +290,23 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		return
 	case "PATCH":
 		if e := res.Patch(r); e != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(e.Error()))
+			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
 	case "DELETE":
 		if res.Parent() == nil {
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "No parent", http.StatusBadRequest)
 			return
 		}
 
 		if !res.Parent().IsCollection() {
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Parent is not a collection", http.StatusBadRequest)
 			return
 		}
 
 		if e := res.Parent().(Collection).Remove(res.PathSegment()); e != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(e.Error()))
+			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}

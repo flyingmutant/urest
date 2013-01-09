@@ -1,10 +1,11 @@
 package urest
 
 // TODO
-// - filesystem resource
 // - Go runtime debug resource
 
 // TOTHINK
+// - Last-Modified
+// - do not require that the root resource has `nil` parent
 // - pass the resource/id chain to the target resource
 // - declarative configuration with explicit URL schema
 //   maybe even include JSON structures into the configuration
@@ -326,6 +327,9 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 	}
 	if cc := res.CacheControl(); cc != "" {
 		w.Header().Set("Cache-Control", cc)
+	} else {
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	}
 }
 

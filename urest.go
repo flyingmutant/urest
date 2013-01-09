@@ -244,9 +244,6 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			setHeaders(res, w)
-			if ct := res.ContentType(); ct != "" {
-				w.Header().Set("Content-Type", ct)
-			}
 			if res.Gzip() && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 				gz := gzip.NewWriter(w)
 				defer gz.Close()
@@ -319,6 +316,9 @@ func index(arr []string, s string) int {
 }
 
 func setHeaders(res Resource, w http.ResponseWriter) {
+	if ct := res.ContentType(); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
 	if etag := res.ETag(); etag != "" {
 		w.Header().Set("ETag", etag)
 	}

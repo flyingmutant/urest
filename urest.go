@@ -265,8 +265,6 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 		return
 	case "PATCH":
-		fallthrough
-	case "PUT":
 		if e := res.Patch(r); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {

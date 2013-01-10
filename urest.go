@@ -4,7 +4,6 @@ package urest
 // - Go runtime debug resource
 
 // TOTHINK
-// - Last-Modified
 // - do not require that the root resource has `nil` parent
 // - pass the resource/id chain to the target resource
 // - declarative configuration with explicit URL schema
@@ -14,14 +13,12 @@ package urest
 // - treat resource "members" as resources, too
 
 import (
-	"compress/gzip"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -52,9 +49,8 @@ type Resource interface {
 	Expires() time.Time
 	CacheControl() string
 	ContentType() string
-	Gzip() bool
 
-	Get(urlPrefix string, r *http.Request) ([]byte, error)
+	Get(urlPrefix string, w http.ResponseWriter, r *http.Request)
 	Patch(*http.Request) error
 	Do(action string, r *http.Request) error
 
@@ -233,30 +229,15 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		w.WriteHeader(http.StatusOK)
 	case "GET":
+		setHeaders(res, w)
 		if etag := res.ETag(); etag != "" {
 			if r.Header.Get("If-None-Match") == etag {
-				setHeaders(res, w)
 				w.WriteHeader(http.StatusNotModified)
 				return
 			}
 		}
 
-		if data, e := res.Get(prefix, r); e != nil {
-			http.Error(w, e.Error(), http.StatusBadRequest)
-		} else {
-			setHeaders(res, w)
-			if res.Gzip() && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-				gz := gzip.NewWriter(w)
-				defer gz.Close()
-				w.Header().Set("Content-Encoding", "gzip")
-				w.WriteHeader(http.StatusOK)
-				gz.Write(data)
-			} else {
-				w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-				w.WriteHeader(http.StatusOK)
-				w.Write(data)
-			}
-		}
+		res.Get(prefix, w, r)
 	case "POST":
 		if postAction != nil {
 			if index(res.AllowedActions(), *postAction) == -1 {

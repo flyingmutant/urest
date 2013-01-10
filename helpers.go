@@ -1,8 +1,11 @@
 package urest
 
 import (
+	"compress/gzip"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,7 +28,7 @@ type DefaultResourceImpl struct {
 	ETagFunc        func() string
 	ExpiresFunc     func() time.Time
 	ContentType_    string
-	Gzip_           bool
+	GzipFunc        func() bool
 	CacheControl_   string
 	GetFunc         func(string, *http.Request) ([]byte, error)
 	PatchFunc       func(*http.Request) error
@@ -44,7 +47,7 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bo
 		ETagFunc:        func() string { return "" },
 		ExpiresFunc:     func() time.Time { return time.Time{} },
 		ContentType_:    contentType,
-		Gzip_:           false,
+		GzipFunc:        func() bool { return false },
 		GetFunc:         func(string, *http.Request) ([]byte, error) { panic("Not implemented") },
 		PatchFunc:       func(*http.Request) error { panic("Not implemented") },
 		IsCollection_:   isCollection,
@@ -95,12 +98,22 @@ func (d *DefaultResourceImpl) ContentType() string {
 	return d.ContentType_
 }
 
-func (d *DefaultResourceImpl) Gzip() bool {
-	return d.Gzip_
-}
-
-func (d *DefaultResourceImpl) Get(urlPrefix string, r *http.Request) ([]byte, error) {
-	return d.GetFunc(urlPrefix, r)
+func (d *DefaultResourceImpl) Get(urlPrefix string, w http.ResponseWriter, r *http.Request) {
+	if data, e := d.GetFunc(urlPrefix, r); e != nil {
+		http.Error(w, e.Error(), http.StatusBadRequest)
+	} else {
+		if d.GzipFunc() && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			gz := gzip.NewWriter(w)
+			defer gz.Close()
+			w.Header().Set("Content-Encoding", "gzip")
+			w.WriteHeader(http.StatusOK)
+			gz.Write(data)
+		} else {
+			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+		}
+	}
 }
 
 func (d *DefaultResourceImpl) Patch(r *http.Request) error {

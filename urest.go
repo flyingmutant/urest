@@ -263,7 +263,6 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				w.WriteHeader(http.StatusCreated)
 			}
 		}
-		return
 	case "PATCH":
 		if e := res.Patch(r); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)

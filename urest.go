@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -251,6 +252,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				w.WriteHeader(http.StatusOK)
 				gz.Write(data)
 			} else {
+				w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 				w.WriteHeader(http.StatusOK)
 				w.Write(data)
 			}

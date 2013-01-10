@@ -161,7 +161,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 			return
 		}
 
-		w.WriteHeader(http.StatusNotFound)
+		http.NotFound(w, r)
 		return
 	}
 
@@ -171,7 +171,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 	}
 
 	if r.Method != "POST" && postAction != nil {
-		http.Error(w, "Non-POST action", http.StatusNotFound)
+		http.NotFound(w, r)
 		return
 	}
 

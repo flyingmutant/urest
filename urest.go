@@ -13,8 +13,10 @@ package urest
 // - treat resource "members" as resources, too
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -82,6 +84,10 @@ func (lrw *loggingResponseWriter) Write(data []byte) (int, error) {
 	return lrw.ResponseWriter.Write(data)
 }
 
+func (lrw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return lrw.ResponseWriter.(http.Hijacker).Hijack()
+}
+
 func (lrw *loggingResponseWriter) log() {
 	d := time.Now().Sub(lrw.start)
 	dC := tColor(fmt.Sprintf("%v", d), t_FG_CYAN)
@@ -109,7 +115,7 @@ func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, 
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		lrw := &loggingResponseWriter{w, r, http.StatusInternalServerError, time.Now(), 0}
+		lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
 
 		w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 

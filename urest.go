@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	SERVER = "uREST/0.1"
+	SERVER = "μREST/0.1"
 
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"

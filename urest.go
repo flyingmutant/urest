@@ -112,6 +112,10 @@ func HandlerWithPrefix(res Resource, prefix string, timeFunc func() time.Time, s
 		timeFunc = time.Now
 	}
 
+	if successFunc == nil {
+		successFunc = func(time.Time) {}
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
 
@@ -129,7 +133,7 @@ func HandlerWithPrefix(res Resource, prefix string, timeFunc func() time.Time, s
 		t := timeFunc()
 		handleWithPrefix(res, prefix, lrw, r, t)
 
-		if lrw.success() && successFunc != nil {
+		if lrw.success() {
 			successFunc(t)
 		}
 	}

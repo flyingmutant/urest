@@ -60,8 +60,6 @@ type (
 		Delete(string, time.Time) error
 	}
 
-	TimeFunc func() time.Time
-
 	loggingResponseWriter struct {
 		http.ResponseWriter
 		r      *http.Request
@@ -85,12 +83,16 @@ func (lrw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) 
 	return lrw.ResponseWriter.(http.Hijacker).Hijack()
 }
 
+func (lrw *loggingResponseWriter) success() bool {
+	return lrw.status >= 200 && lrw.status < 300
+}
+
 func (lrw *loggingResponseWriter) log() {
 	d := time.Now().Sub(lrw.start)
 	dC := tColor(fmt.Sprintf("%v", d), t_FG_CYAN)
 
 	statusC := fmt.Sprintf("%v", lrw.status)
-	if lrw.status >= 200 && lrw.status < 300 {
+	if lrw.success() {
 		statusC = tColor(statusC, t_FG_GREEN)
 	} else if lrw.status >= 400 {
 		statusC = tColor(fmt.Sprintf("%v", lrw.status), t_FG_RED)
@@ -110,7 +112,7 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
-func HandlerWithPrefix(res Resource, prefix string, timeFunc TimeFunc) func(w http.ResponseWriter, r *http.Request) {
+func HandlerWithPrefix(res Resource, prefix string, timeFunc func() time.Time, successFunc func()) func(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
 	}
@@ -134,6 +136,10 @@ func HandlerWithPrefix(res Resource, prefix string, timeFunc TimeFunc) func(w ht
 		}()
 
 		handleWithPrefix(res, prefix, lrw, r, timeFunc())
+
+		if lrw.success() && successFunc != nil {
+			successFunc()
+		}
 	}
 }
 

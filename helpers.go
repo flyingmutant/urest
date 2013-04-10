@@ -24,17 +24,17 @@ type DefaultResourceImpl struct {
 	PathSegment_    string
 	Children        map[string]Resource
 	AllowedMethods_ []string
-	Actions         map[string]func(*http.Request) error
+	Actions         map[string]func(*http.Request, time.Time) error
 	ETagFunc        func() string
 	ExpiresFunc     func() time.Time
 	ContentType_    string
 	GzipFunc        func() bool
 	CacheControl_   string
-	GetFunc         func(string, *http.Request) ([]byte, error)
-	PatchFunc       func(*http.Request) error
+	ReadFunc        func(string, *http.Request, time.Time) ([]byte, error)
+	UpdateFunc      func(*http.Request, time.Time) error
 	IsCollection_   bool
-	CreateFunc      func(*http.Request) (Resource, error)
-	RemoveFunc      func(string) error
+	CreateFunc      func(*http.Request, time.Time) (Resource, error)
+	DeleteFunc      func(string, time.Time) error
 }
 
 func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bool, contentType string) *DefaultResourceImpl {
@@ -43,16 +43,16 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string, isCollection bo
 		PathSegment_:    pathSegment,
 		Children:        make(map[string]Resource),
 		AllowedMethods_: []string{"HEAD"},
-		Actions:         make(map[string]func(*http.Request) error),
+		Actions:         make(map[string]func(*http.Request, time.Time) error),
 		ETagFunc:        func() string { return "" },
 		ExpiresFunc:     func() time.Time { return time.Time{} },
 		ContentType_:    contentType,
 		GzipFunc:        func() bool { return false },
-		GetFunc:         func(string, *http.Request) ([]byte, error) { panic("Not implemented") },
-		PatchFunc:       func(*http.Request) error { panic("Not implemented") },
+		ReadFunc:        func(string, *http.Request, time.Time) ([]byte, error) { panic("Not implemented") },
+		UpdateFunc:      func(*http.Request, time.Time) error { panic("Not implemented") },
 		IsCollection_:   isCollection,
-		CreateFunc:      func(*http.Request) (Resource, error) { panic("Not implemented") },
-		RemoveFunc:      func(string) error { panic("Not implemented") },
+		CreateFunc:      func(*http.Request, time.Time) (Resource, error) { panic("Not implemented") },
+		DeleteFunc:      func(string, time.Time) error { panic("Not implemented") },
 	}
 }
 
@@ -98,8 +98,8 @@ func (d *DefaultResourceImpl) ContentType() string {
 	return d.ContentType_
 }
 
-func (d *DefaultResourceImpl) Get(urlPrefix string, w http.ResponseWriter, r *http.Request) {
-	if data, e := d.GetFunc(urlPrefix, r); e != nil {
+func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request, t time.Time) {
+	if data, e := d.ReadFunc(urlPrefix, r, t); e != nil {
 		http.Error(w, e.Error(), http.StatusBadRequest)
 	} else {
 		if d.GzipFunc() && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
@@ -116,13 +116,13 @@ func (d *DefaultResourceImpl) Get(urlPrefix string, w http.ResponseWriter, r *ht
 	}
 }
 
-func (d *DefaultResourceImpl) Patch(r *http.Request) error {
-	return d.PatchFunc(r)
+func (d *DefaultResourceImpl) Update(r *http.Request, t time.Time) error {
+	return d.UpdateFunc(r, t)
 }
 
-func (d *DefaultResourceImpl) Do(action string, r *http.Request) error {
+func (d *DefaultResourceImpl) Do(action string, r *http.Request, t time.Time) error {
 	if a := d.Actions[action]; a != nil {
-		return a(r)
+		return a(r, t)
 	}
 
 	panic("Not implemented")
@@ -132,10 +132,10 @@ func (d *DefaultResourceImpl) IsCollection() bool {
 	return d.IsCollection_
 }
 
-func (d *DefaultResourceImpl) Create(r *http.Request) (Resource, error) {
-	return d.CreateFunc(r)
+func (d *DefaultResourceImpl) Create(r *http.Request, t time.Time) (Resource, error) {
+	return d.CreateFunc(r, t)
 }
 
-func (d *DefaultResourceImpl) Remove(s string) error {
-	return d.RemoveFunc(s)
+func (d *DefaultResourceImpl) Delete(s string, t time.Time) error {
+	return d.DeleteFunc(s, t)
 }

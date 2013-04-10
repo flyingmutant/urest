@@ -46,9 +46,9 @@ type (
 		CacheControl() string
 		ContentType() string
 
-		Get(urlPrefix string, w http.ResponseWriter, r *http.Request)
-		Patch(*http.Request) error
-		Do(action string, r *http.Request) error
+		Read(urlPrefix string, w http.ResponseWriter, r *http.Request, t time.Time)
+		Update(*http.Request, time.Time) error
+		Do(action string, r *http.Request, t time.Time) error
 
 		IsCollection() bool
 	}
@@ -56,9 +56,11 @@ type (
 	Collection interface {
 		Resource
 
-		Create(*http.Request) (Resource, error)
-		Remove(string) error
+		Create(*http.Request, time.Time) (Resource, error)
+		Delete(string, time.Time) error
 	}
+
+	TimeFunc func() time.Time
 
 	loggingResponseWriter struct {
 		http.ResponseWriter
@@ -108,9 +110,13 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
-func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {
+func HandlerWithPrefix(res Resource, prefix string, timeFunc TimeFunc) func(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
+	}
+
+	if timeFunc == nil {
+		timeFunc = time.Now
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -127,11 +133,11 @@ func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, 
 			}
 		}()
 
-		handleWithPrefix(res, prefix, lrw, r)
+		handleWithPrefix(res, prefix, lrw, r, timeFunc())
 	}
 }
 
-func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *http.Request) {
+func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *http.Request, t time.Time) {
 	if res.Parent() != nil {
 		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(res)))
 	}
@@ -177,7 +183,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 		return
 	}
 
-	handle(ch, postAction, prefix, w, r)
+	handle(ch, postAction, prefix, w, r, t)
 }
 
 func navigate(res Resource, steps []string) (Resource, []string) {
@@ -221,7 +227,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 	return res, []string{head}
 }
 
-func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {
+func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request, t time.Time) {
 	if index(res.AllowedMethods(), r.Method) == -1 {
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -242,7 +248,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 
-		res.Get(prefix, w, r)
+		res.Read(prefix, w, r, t)
 	case "POST":
 		if postAction != nil {
 			if index(res.AllowedActions(), *postAction) == -1 {
@@ -250,7 +256,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if e := res.Do(*postAction, r); e != nil {
+			if e := res.Do(*postAction, r, t); e != nil {
 				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.WriteHeader(http.StatusNoContent)
@@ -261,7 +267,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if ch, e := res.(Collection).Create(r); e != nil {
+			if ch, e := res.(Collection).Create(r, t); e != nil {
 				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.Header().Set("Location", RelativeURL(prefix, ch).String())
@@ -269,7 +275,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 	case "PATCH":
-		if e := res.Patch(r); e != nil {
+		if e := res.Update(r, t); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
@@ -285,7 +291,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			return
 		}
 
-		if e := res.Parent().(Collection).Remove(res.PathSegment()); e != nil {
+		if e := res.Parent().(Collection).Delete(res.PathSegment(), t); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)

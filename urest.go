@@ -103,7 +103,7 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
-func HandlerWithPrefix(res Resource, prefix string, timeFunc func() time.Time, successFunc func()) func(w http.ResponseWriter, r *http.Request) {
+func HandlerWithPrefix(res Resource, prefix string, timeFunc func() time.Time, successFunc func(time.Time)) func(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
 	}
@@ -126,10 +126,11 @@ func HandlerWithPrefix(res Resource, prefix string, timeFunc func() time.Time, s
 
 		w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 
-		handleWithPrefix(res, prefix, lrw, r, timeFunc())
+		t := timeFunc()
+		handleWithPrefix(res, prefix, lrw, r, t)
 
 		if lrw.success() && successFunc != nil {
-			successFunc()
+			successFunc(t)
 		}
 	}
 }

@@ -116,16 +116,16 @@ func HandlerWithPrefix(res Resource, prefix string, ctx Context) func(w http.Res
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
-
 		defer func() {
-			lrw.log()
 			if rec := recover(); rec != nil {
-				log.Printf("Panic: %v", rec)
+				log.Printf("%v: %v", tColor("PANIC", t_FG_RED), rec)
 				debug.PrintStack()
 				http.Error(w, "Server panic", http.StatusInternalServerError)
 			}
 		}()
+
+		lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
+		defer lrw.log()
 
 		w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 

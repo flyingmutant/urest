@@ -58,6 +58,12 @@ type (
 		Failure(time.Time, *http.Request)
 	}
 
+	Handler struct {
+		res    Resource
+		prefix string
+		ctx    Context
+	}
+
 	loggingResponseWriter struct {
 		http.ResponseWriter
 		r      *http.Request
@@ -110,53 +116,59 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
-func HandlerWithPrefix(res Resource, prefix string, ctx Context) func(w http.ResponseWriter, r *http.Request) {
+func NewHandler(res Resource, prefix string, ctx Context) *Handler {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if rec := recover(); rec != nil {
-				log.Printf("%v: %v", tColor("PANIC", t_FG_RED), rec)
-				debug.PrintStack()
-				http.Error(w, "Server panic", http.StatusInternalServerError)
-			}
-		}()
-
-		lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
-		defer lrw.log()
-
-		w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
-
-		ctx.Prepare()
-		t := ctx.Now()
-
-		handleWithPrefix(res, prefix, lrw, r, t)
-
-		if lrw.success() {
-			ctx.Success(t, r)
-		} else {
-			ctx.Failure(t, r)
-		}
+	return &Handler{
+		res:    res,
+		prefix: prefix,
+		ctx:    ctx,
 	}
 }
 
-func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *http.Request, t time.Time) {
-	if res.Parent() != nil {
-		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(res)))
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("%v: %v", tColor("PANIC", t_FG_RED), rec)
+			debug.PrintStack()
+			http.Error(w, "Server panic", http.StatusInternalServerError)
+		}
+	}()
+
+	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
+	defer lrw.log()
+
+	w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
+
+	h.ctx.Prepare()
+	t := h.ctx.Now()
+
+	h.handle(lrw, r, t)
+
+	if lrw.success() {
+		h.ctx.Success(t, r)
+	} else {
+		h.ctx.Failure(t, r)
+	}
+}
+
+func (h *Handler) handle(w http.ResponseWriter, r *http.Request, t time.Time) {
+	if h.res.Parent() != nil {
+		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(h.res)))
 	}
 
-	if r.URL.Path[:len(prefix)] != prefix {
-		panic(fmt.Sprintf("Prefix '%v' does not match request URL path '%v'", prefix, r.URL.Path))
+	if r.URL.Path[:len(h.prefix)] != h.prefix {
+		panic(fmt.Sprintf("Prefix '%v' does not match request URL path '%v'", h.prefix, r.URL.Path))
 	}
 
-	steps := strings.Split(r.URL.Path[len(prefix):], "/")
+	steps := strings.Split(r.URL.Path[len(h.prefix):], "/")
 	if len(steps) == 1 && steps[0] == "" {
 		steps = []string{}
 	}
 
-	ch, rest := navigate(res, steps)
+	ch, rest := navigate(h.res, steps)
 	if ch == nil {
 		if rest == nil {
 			u := *r.URL
@@ -188,7 +200,7 @@ func handleWithPrefix(res Resource, prefix string, w http.ResponseWriter, r *htt
 		return
 	}
 
-	handle(ch, postAction, prefix, w, r, t)
+	handle(ch, postAction, h.prefix, w, r, t)
 }
 
 func navigate(res Resource, steps []string) (Resource, []string) {

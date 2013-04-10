@@ -1,8 +1,5 @@
 package urest
 
-// TODO
-// - Go runtime debug resource
-
 // TOTHINK
 // - do not require that the root resource has `nil` parent
 // - pass the resource/id chain to the target resource
@@ -35,44 +32,42 @@ const (
 	t_FG_CYAN   = "\x1b[36m"
 )
 
-func tColor(s string, color string) string {
-	return color + s + t_RESET
-}
+type (
+	Resource interface {
+		Parent() Resource
+		PathSegment() string
+		Child(string) Resource
 
-type Resource interface {
-	Parent() Resource
-	PathSegment() string
-	Child(string) Resource
+		AllowedMethods() []string
+		AllowedActions() []string
 
-	AllowedMethods() []string
-	AllowedActions() []string
+		ETag() string
+		Expires() time.Time
+		CacheControl() string
+		ContentType() string
 
-	ETag() string
-	Expires() time.Time
-	CacheControl() string
-	ContentType() string
+		Get(urlPrefix string, w http.ResponseWriter, r *http.Request)
+		Patch(*http.Request) error
+		Do(action string, r *http.Request) error
 
-	Get(urlPrefix string, w http.ResponseWriter, r *http.Request)
-	Patch(*http.Request) error
-	Do(action string, r *http.Request) error
+		IsCollection() bool
+	}
 
-	IsCollection() bool
-}
+	Collection interface {
+		Resource
 
-type Collection interface {
-	Resource
+		Create(*http.Request) (Resource, error)
+		Remove(string) error
+	}
 
-	Create(*http.Request) (Resource, error)
-	Remove(string) error
-}
-
-type loggingResponseWriter struct {
-	http.ResponseWriter
-	r      *http.Request
-	status int
-	start  time.Time
-	size   int
-}
+	loggingResponseWriter struct {
+		http.ResponseWriter
+		r      *http.Request
+		status int
+		start  time.Time
+		size   int
+	}
+)
 
 func (lrw *loggingResponseWriter) WriteHeader(status int) {
 	lrw.ResponseWriter.WriteHeader(status)
@@ -107,6 +102,10 @@ func (lrw *loggingResponseWriter) log() {
 	}
 
 	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, lrw.r.RequestURI, dC, sizeS)
+}
+
+func tColor(s string, color string) string {
+	return color + s + t_RESET
 }
 
 func HandlerWithPrefix(res Resource, prefix string) func(w http.ResponseWriter, r *http.Request) {

@@ -3,6 +3,7 @@ package urest
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -38,8 +39,8 @@ type (
 		ContentType() string
 
 		Read(urlPrefix string, w http.ResponseWriter, r *http.Request, t time.Time)
-		Update(*http.Request, time.Time) error
-		Do(action string, r *http.Request, t time.Time) error
+		Update(*http.Request, []byte, time.Time) error
+		Do(action string, r *http.Request, body []byte, t time.Time) error
 
 		IsCollection() bool
 	}
@@ -47,15 +48,15 @@ type (
 	Collection interface {
 		Resource
 
-		Create(*http.Request, time.Time) (Resource, error)
-		Delete(string, time.Time) error
+		Create(*http.Request, []byte, time.Time) (Resource, error)
+		Delete(string, []byte, time.Time) error
 	}
 
 	Context interface {
 		Prepare()
 		Now() time.Time
-		Success(time.Time, *http.Request)
-		Failure(time.Time, *http.Request)
+		Success(time.Time, *http.Request, []byte)
+		Failure(time.Time, *http.Request, []byte)
 	}
 
 	Handler struct {
@@ -137,6 +138,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	body, e := readBody(r)
+	if e != nil {
+		log.Printf("Failed to read request body for %v: %v", r.RequestURI, e)
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
 	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
 	defer lrw.log()
 
@@ -145,16 +153,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ctx.Prepare()
 	t := h.ctx.Now()
 
-	h.handle(lrw, r, t)
+	h.handle(lrw, r, body, t)
 
 	if lrw.success() {
-		h.ctx.Success(t, r)
+		h.ctx.Success(t, r, body)
 	} else {
-		h.ctx.Failure(t, r)
+		h.ctx.Failure(t, r, body)
 	}
 }
 
-func (h *Handler) handle(w http.ResponseWriter, r *http.Request, t time.Time) {
+func readBody(r *http.Request) ([]byte, error) {
+	defer r.Body.Close()
+
+	return ioutil.ReadAll(r.Body)
+}
+
+func (h *Handler) handle(w http.ResponseWriter, r *http.Request, body []byte, t time.Time) {
 	if h.res.Parent() != nil {
 		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(h.res)))
 	}
@@ -200,7 +214,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request, t time.Time) {
 		return
 	}
 
-	handle(ch, postAction, h.prefix, w, r, t)
+	handle(ch, postAction, h.prefix, w, r, body, t)
 }
 
 func navigate(res Resource, steps []string) (Resource, []string) {
@@ -244,7 +258,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 	return res, []string{head}
 }
 
-func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request, t time.Time) {
+func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request, body []byte, t time.Time) {
 	if index(res.AllowedMethods(), r.Method) == -1 {
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -273,7 +287,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if e := res.Do(*postAction, r, t); e != nil {
+			if e := res.Do(*postAction, r, body, t); e != nil {
 				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.WriteHeader(http.StatusNoContent)
@@ -284,7 +298,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if ch, e := res.(Collection).Create(r, t); e != nil {
+			if ch, e := res.(Collection).Create(r, body, t); e != nil {
 				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.Header().Set("Location", RelativeURL(prefix, ch).String())
@@ -292,7 +306,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 	case "PATCH":
-		if e := res.Update(r, t); e != nil {
+		if e := res.Update(r, body, t); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
@@ -308,7 +322,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			return
 		}
 
-		if e := res.Parent().(Collection).Delete(res.PathSegment(), t); e != nil {
+		if e := res.Parent().(Collection).Delete(res.PathSegment(), body, t); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)

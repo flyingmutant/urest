@@ -2,6 +2,7 @@ package urest
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -41,8 +42,8 @@ type (
 		ContentType() string
 
 		Read(urlPrefix string, w http.ResponseWriter, r *http.Request, t time.Time)
-		Update(*http.Request, []byte, time.Time) error
-		Do(action string, r *http.Request, body []byte, t time.Time) error
+		Update(*http.Request, map[string]interface{}, time.Time) error
+		Do(action string, r *http.Request, body map[string]interface{}, t time.Time) error
 
 		IsCollection() bool
 	}
@@ -50,15 +51,15 @@ type (
 	Collection interface {
 		Resource
 
-		Create(*http.Request, []byte, time.Time) (Resource, error)
-		Delete(string, []byte, time.Time) error
+		Create(*http.Request, map[string]interface{}, time.Time) (Resource, error)
+		Delete(string, map[string]interface{}, time.Time) error
 	}
 
 	Context interface {
 		Prepare()
 		Now() time.Time
-		Success(time.Time, *http.Request, []byte)
-		Failure(time.Time, *http.Request, []byte)
+		Success(time.Time, *http.Request, map[string]interface{})
+		Failure(time.Time, *http.Request, map[string]interface{})
 	}
 
 	Handler struct {
@@ -147,6 +148,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	data := map[string]interface{}{}
+	if je := json.Unmarshal(body, data); je != nil {
+		log.Printf("Failed to parse request body for %v: %v", r.RequestURI, e)
+		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
+		return
+	}
+
 	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
 	defer lrw.log()
 
@@ -155,12 +163,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ctx.Prepare()
 	t := h.ctx.Now()
 
-	h.handle(lrw, r, body, t)
+	h.handle(lrw, r, data, t)
 
 	if lrw.success() {
-		h.ctx.Success(t, r, body)
+		h.ctx.Success(t, r, data)
 	} else {
-		h.ctx.Failure(t, r, body)
+		h.ctx.Failure(t, r, data)
 	}
 }
 
@@ -176,7 +184,7 @@ func readBody(r *http.Request) ([]byte, error) {
 	return body[0:n], nil
 }
 
-func (h *Handler) handle(w http.ResponseWriter, r *http.Request, body []byte, t time.Time) {
+func (h *Handler) handle(w http.ResponseWriter, r *http.Request, body map[string]interface{}, t time.Time) {
 	if h.res.Parent() != nil {
 		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(h.res)))
 	}
@@ -266,7 +274,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 	return res, []string{head}
 }
 
-func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request, body []byte, t time.Time) {
+func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request, body map[string]interface{}, t time.Time) {
 	if index(res.AllowedMethods(), r.Method) == -1 {
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		w.WriteHeader(http.StatusMethodNotAllowed)

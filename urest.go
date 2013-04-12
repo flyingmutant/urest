@@ -3,7 +3,7 @@ package urest
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -16,6 +16,8 @@ import (
 
 const (
 	SERVER = "μREST/0.2"
+
+	MAX_BODY_SIZE = 4096
 
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"
@@ -164,8 +166,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func readBody(r *http.Request) ([]byte, error) {
 	defer r.Body.Close()
+	body := make([]byte, MAX_BODY_SIZE)
 
-	return ioutil.ReadAll(r.Body)
+	n, err := r.Body.Read(body)
+
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return body[0:n], nil
 }
 
 func (h *Handler) handle(w http.ResponseWriter, r *http.Request, body []byte, t time.Time) {

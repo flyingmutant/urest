@@ -149,10 +149,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{}
-	if je := json.Unmarshal(body, data); je != nil {
-		log.Printf("Failed to parse request body for %v: %v", r.RequestURI, e)
-		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
-		return
+	if len(body) > 0 {
+		if je := json.Unmarshal(body, data); je != nil {
+			log.Printf("Failed to parse request body for %v: %v", r.RequestURI, je)
+			http.Error(w, "Failed to parse request body", http.StatusBadRequest)
+			return
+		}
 	}
 
 	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}

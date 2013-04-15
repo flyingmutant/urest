@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	SERVER = "μREST/0.2"
+	SERVER = "uREST/0.2"
 
 	MAX_BODY_SIZE = 4096
 

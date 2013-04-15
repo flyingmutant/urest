@@ -68,6 +68,8 @@ type (
 		ctx    Context
 	}
 
+	dummyContext struct{}
+
 	loggingResponseWriter struct {
 		http.ResponseWriter
 		r      *http.Request
@@ -120,9 +122,23 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
+func (ctx dummyContext) Prepare() {}
+
+func (ctx dummyContext) Now() time.Time {
+	return time.Now()
+}
+
+func (ctx dummyContext) Success(time.Time, *http.Request, map[string]interface{}) {}
+
+func (ctx dummyContext) Failure(time.Time, *http.Request, map[string]interface{}) {}
+
 func NewHandler(res Resource, prefix string, ctx Context) *Handler {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
+	}
+
+	if ctx == nil {
+		ctx = dummyContext{}
 	}
 
 	return &Handler{

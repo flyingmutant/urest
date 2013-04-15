@@ -2,6 +2,7 @@ package urest
 
 import (
 	"compress/gzip"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ type DefaultResourceImpl struct {
 	GzipFunc        func() bool
 	CacheControl_   string
 	ReadFunc        func(string, *http.Request, time.Time) ([]byte, error)
+	DataFunc        func(string, *http.Request, time.Time) (interface{}, error)
 	UpdateFunc      func(*http.Request, map[string]interface{}, time.Time) error
 	IsCollection_   bool
 	CreateFunc      func(*http.Request, map[string]interface{}, time.Time) (Resource, error)
@@ -92,20 +94,35 @@ func (d *DefaultResourceImpl) ContentType() string {
 }
 
 func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request, t time.Time) {
-	if data, e := d.ReadFunc(urlPrefix, r, t); e != nil {
-		http.Error(w, e.Error(), http.StatusBadRequest)
-	} else {
-		if d.GzipFunc() && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			gz := gzip.NewWriter(w)
-			defer gz.Close()
-			w.Header().Set("Content-Encoding", "gzip")
-			w.WriteHeader(http.StatusOK)
-			gz.Write(data)
+	var data []byte
+	var err error
+
+	if d.ContentType() == CONTENT_TYPE_JSON && d.DataFunc != nil {
+		c, e := d.DataFunc(urlPrefix, r, t)
+		if e != nil {
+			err = e
 		} else {
-			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-			w.WriteHeader(http.StatusOK)
-			w.Write(data)
+			data, err = json.Marshal(c)
 		}
+	} else {
+		data, err = d.ReadFunc(urlPrefix, r, t)
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if d.GzipFunc() && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		w.Header().Set("Content-Encoding", "gzip")
+		w.WriteHeader(http.StatusOK)
+		gz.Write(data)
+	} else {
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
 	}
 }
 

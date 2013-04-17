@@ -22,7 +22,12 @@ type (
 		ReadRaw(string, *http.Request, time.Time) ([]byte, error)
 	}
 
+	Digester interface {
+		Digest() []byte
+	}
+
 	DefaultResourceImpl struct {
+		etagFunc        func() string
 		readRawFunc     func(string, *http.Request, time.Time) ([]byte, error)
 		Parent_         Resource
 		PathSegment_    string
@@ -67,6 +72,12 @@ func (d *DefaultResourceImpl) SetRawReadDelegate(del RawReadResource) {
 	}
 }
 
+func (d *DefaultResourceImpl) SetDigester(dg Digester) {
+	d.etagFunc = func() string {
+		return string(dg.Digest())
+	}
+}
+
 func (d *DefaultResourceImpl) AddAction(action string, f func(*http.Request, map[string]interface{}, time.Time) error) {
 	d.Actions[action] = f
 }
@@ -96,7 +107,10 @@ func (d *DefaultResourceImpl) AllowedActions() []string {
 }
 
 func (d *DefaultResourceImpl) ETag() string {
-	return ""
+	if d.etagFunc == nil {
+		return ""
+	}
+	return d.etagFunc()
 }
 
 func (d *DefaultResourceImpl) Expires() time.Time {

@@ -115,7 +115,12 @@ func (lrw *loggingResponseWriter) log() {
 		sizeS = fmt.Sprintf(", %v bytes", lrw.size)
 	}
 
-	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, lrw.r.RequestURI, dC, sizeS)
+	uri := lrw.r.RequestURI
+	if uri == "" {
+		uri = "@" + lrw.r.URL.String()
+	}
+
+	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, uri, dC, sizeS)
 }
 
 func tColor(s string, color string) string {
@@ -166,7 +171,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]interface{}{}
 	if len(body) > 0 {
-		if je := json.Unmarshal(body, data); je != nil {
+		if je := json.Unmarshal(body, &data); je != nil {
 			log.Printf("Failed to parse request body for %v: %v", r.RequestURI, je)
 			http.Error(w, "Failed to parse request body", http.StatusBadRequest)
 			return

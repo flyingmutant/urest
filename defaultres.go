@@ -13,18 +13,28 @@ const (
 	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
 )
 
-type DefaultResourceImpl struct {
-	readRawFunc     func(string, *http.Request, time.Time) ([]byte, error)
-	Parent_         Resource
-	PathSegment_    string
-	Children        map[string]Resource
-	AllowedMethods_ []string
-	Actions         map[string]func(*http.Request, map[string]interface{}, time.Time) error
-	ContentType_    string
-	Gzip            bool
-	CacheControl_   string
-	IsCollection_   bool
-}
+type (
+	DataResource interface {
+		Data(string, *http.Request, time.Time) (interface{}, error)
+	}
+
+	RawReadResource interface {
+		ReadRaw(string, *http.Request, time.Time) ([]byte, error)
+	}
+
+	DefaultResourceImpl struct {
+		readRawFunc     func(string, *http.Request, time.Time) ([]byte, error)
+		Parent_         Resource
+		PathSegment_    string
+		Children        map[string]Resource
+		AllowedMethods_ []string
+		Actions         map[string]func(*http.Request, map[string]interface{}, time.Time) error
+		ContentType_    string
+		Gzip            bool
+		CacheControl_   string
+		IsCollection_   bool
+	}
+)
 
 func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourceImpl {
 	return &DefaultResourceImpl{
@@ -37,34 +47,24 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourc
 	}
 }
 
-func (d *DefaultResourceImpl) SetDelegate(del interface{}) {
-	if i, ok := del.(interface {
-		Data(string, *http.Request, time.Time) (interface{}, error)
-	}); ok {
-		if ct := d.ContentType(); ct != CONTENT_TYPE_JSON {
-			panic("Resource has Data function but non-JSON Content-Type")
-		}
+func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
+	if ct := d.ContentType(); ct != CONTENT_TYPE_JSON {
+		panic("Resource has Data function but non-JSON Content-Type")
+	}
 
-		d.readRawFunc = func(prefix string, r *http.Request, t time.Time) ([]byte, error) {
-			data, err := i.Data(prefix, r, t)
-			if err != nil {
-				return nil, err
-			}
-			return json.Marshal(data)
+	d.readRawFunc = func(prefix string, r *http.Request, t time.Time) ([]byte, error) {
+		data, err := del.Data(prefix, r, t)
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		ri, rok := del.(interface {
-			ReadRaw(string, *http.Request, time.Time) ([]byte, error)
-		})
-		if rok {
-			d.readRawFunc = func(prefix string, r *http.Request, t time.Time) ([]byte, error) {
-				return ri.ReadRaw(prefix, r, t)
-			}
-		}
+		return json.Marshal(data)
 	}
 }
 
-func (d *DefaultResourceImpl) setReadDelegate(del interface{}) {
+func (d *DefaultResourceImpl) SetRawReadDelegate(del RawReadResource) {
+	d.readRawFunc = func(prefix string, r *http.Request, t time.Time) ([]byte, error) {
+		return del.ReadRaw(prefix, r, t)
+	}
 }
 
 func (d *DefaultResourceImpl) AddAction(action string, f func(*http.Request, map[string]interface{}, time.Time) error) {

@@ -3,6 +3,7 @@ package urest
 import (
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -74,7 +75,7 @@ func (d *DefaultResourceImpl) SetRawReadDelegate(del RawReadResource) {
 
 func (d *DefaultResourceImpl) SetDigester(dg Digester) {
 	d.etagFunc = func() string {
-		return string(dg.Digest())
+		return fmt.Sprintf("%x", dg.Digest())
 	}
 }
 

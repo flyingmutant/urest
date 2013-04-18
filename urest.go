@@ -3,7 +3,6 @@ package urest
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -18,8 +17,6 @@ const (
 	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
 
 	SERVER = "uREST/0.2"
-
-	MAX_BODY_SIZE = 4096
 
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"
@@ -61,7 +58,7 @@ type (
 	}
 
 	Context interface {
-		Prepare(*http.Request)
+		Prepare(*http.Request) error
 		Success(*http.Request)
 		Failure(*http.Request)
 	}
@@ -139,9 +136,9 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
-func (ctx dummyContext) Prepare(*http.Request) {}
-func (ctx dummyContext) Success(*http.Request) {}
-func (ctx dummyContext) Failure(*http.Request) {}
+func (ctx dummyContext) Prepare(*http.Request) error { return nil }
+func (ctx dummyContext) Success(*http.Request)       {}
+func (ctx dummyContext) Failure(*http.Request)       {}
 
 func NewHandler(res Resource, prefix string, ctx Context) *Handler {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
@@ -168,22 +165,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// body, e := readBody(r)
-	// if e != nil {
-	// 	log.Printf("Failed to read request body for %v: %v", r.RequestURI, e)
-	// 	http.Error(w, "Failed to read request body", http.StatusBadRequest)
-	// 	return
-	// }
-
-	// data := map[string]interface{}{}
-	// if len(body) > 0 {
-	// 	if je := json.Unmarshal(body, &data); je != nil {
-	// 		log.Printf("Failed to parse request body for %v: %v", r.RequestURI, je)
-	// 		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
-	// 		return
-	// 	}
-	// }
-
 	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
 	defer lrw.log()
 
@@ -192,7 +173,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestData[r] = map[string]interface{}{}
 	defer delete(requestData, r)
 
-	h.ctx.Prepare(r)
+	if err := h.ctx.Prepare(r); err != nil {
+		log.Printf("Failed to prepare request context: %v", err)
+		http.Error(w, "Failed to prepare request context", http.StatusBadRequest)
+		return
+	}
 
 	h.handle(lrw, r)
 
@@ -201,18 +186,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		h.ctx.Failure(r)
 	}
-}
-
-func readBody(r *http.Request) ([]byte, error) {
-	defer r.Body.Close()
-	body := make([]byte, MAX_BODY_SIZE)
-
-	n, err := r.Body.Read(body)
-
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	return body[0:n], nil
 }
 
 func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {

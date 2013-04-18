@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-const (
-	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
-)
-
 type (
 	DataResource interface {
 		Data(string, *http.Request, time.Time) (interface{}, error)
@@ -32,15 +28,19 @@ type (
 		readRawFunc     func(string, *http.Request, time.Time) ([]byte, error)
 		Parent_         Resource
 		PathSegment_    string
+		IsCollection_   bool
 		Children        map[string]Resource
 		AllowedMethods_ []string
 		Actions         map[string]func(*http.Request, map[string]interface{}, time.Time) error
 		ContentType_    string
 		Gzip            bool
-		CacheControl_   string
-		IsCollection_   bool
+		CacheDuration   time.Duration
 	}
 )
+
+func CacheControl(maxAge time.Duration) string {
+	return fmt.Sprintf("max-age=%d, must-revalidate", maxAge/time.Second)
+}
 
 func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourceImpl {
 	return &DefaultResourceImpl{
@@ -50,6 +50,7 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourc
 		AllowedMethods_: []string{"HEAD"},
 		Actions:         map[string]func(*http.Request, map[string]interface{}, time.Time) error{},
 		ContentType_:    CONTENT_TYPE_JSON,
+		Gzip:            true,
 	}
 }
 
@@ -119,7 +120,10 @@ func (d *DefaultResourceImpl) Expires() time.Time {
 }
 
 func (d *DefaultResourceImpl) CacheControl() string {
-	return d.CacheControl_
+	if d.CacheDuration == 0 {
+		return ""
+	}
+	return CacheControl(d.CacheDuration)
 }
 
 func (d *DefaultResourceImpl) ContentType() string {

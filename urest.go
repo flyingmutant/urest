@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
+
 	SERVER = "uREST/0.2"
 
 	MAX_BODY_SIZE = 4096

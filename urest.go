@@ -2,7 +2,6 @@ package urest
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -27,6 +26,10 @@ const (
 	t_FG_GREEN  = "\x1b[32m"
 	t_FG_YELLOW = "\x1b[33m"
 	t_FG_CYAN   = "\x1b[36m"
+)
+
+var (
+	requestData = map[*http.Request]map[string]interface{}{}
 )
 
 type (
@@ -79,6 +82,14 @@ type (
 		size   int
 	}
 )
+
+func SetRequestData(r *http.Request, name string, data interface{}) {
+	requestData[r][name] = data
+}
+
+func GetRequestData(r *http.Request, name string) interface{} {
+	return requestData[r][name]
+}
 
 func (lrw *loggingResponseWriter) WriteHeader(status int) {
 	lrw.ResponseWriter.WriteHeader(status)
@@ -177,6 +188,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer lrw.log()
 
 	w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
+
+	requestData[r] = map[string]interface{}{}
+	defer delete(requestData, r)
 
 	h.ctx.Prepare(r)
 

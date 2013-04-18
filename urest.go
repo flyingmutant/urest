@@ -43,7 +43,7 @@ type (
 		CacheControl() string
 		ContentType() string
 
-		Read(urlPrefix string, w http.ResponseWriter, r *http.Request) ([]byte, error)
+		Read(urlPrefix string, w http.ResponseWriter, r *http.Request)
 		Update(*http.Request) error
 		Do(action string, r *http.Request) error
 

@@ -1,6 +1,7 @@
 package urest
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -138,11 +139,15 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 	}
 
 	if d.Gzip && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		w.Header().Set("Content-Encoding", "gzip")
-		w.WriteHeader(http.StatusOK)
+		b := bytes.Buffer{}
+		gz := gzip.NewWriter(&b)
 		gz.Write(data)
+		gz.Close()
+
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+		w.WriteHeader(http.StatusOK)
+		w.Write(b.Bytes())
 	} else {
 		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 		w.WriteHeader(http.StatusOK)

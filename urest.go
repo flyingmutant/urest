@@ -157,21 +157,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	body, e := readBody(r)
-	if e != nil {
-		log.Printf("Failed to read request body for %v: %v", r.RequestURI, e)
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
-	}
+	// body, e := readBody(r)
+	// if e != nil {
+	// 	log.Printf("Failed to read request body for %v: %v", r.RequestURI, e)
+	// 	http.Error(w, "Failed to read request body", http.StatusBadRequest)
+	// 	return
+	// }
 
-	data := map[string]interface{}{}
-	if len(body) > 0 {
-		if je := json.Unmarshal(body, &data); je != nil {
-			log.Printf("Failed to parse request body for %v: %v", r.RequestURI, je)
-			http.Error(w, "Failed to parse request body", http.StatusBadRequest)
-			return
-		}
-	}
+	// data := map[string]interface{}{}
+	// if len(body) > 0 {
+	// 	if je := json.Unmarshal(body, &data); je != nil {
+	// 		log.Printf("Failed to parse request body for %v: %v", r.RequestURI, je)
+	// 		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
+	// 		return
+	// 	}
+	// }
 
 	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
 	defer lrw.log()

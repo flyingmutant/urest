@@ -43,9 +43,9 @@ type (
 		CacheControl() string
 		ContentType() string
 
-		Read(urlPrefix string, w http.ResponseWriter, r *http.Request, t time.Time)
-		Update(*http.Request, map[string]interface{}, time.Time) error
-		Do(action string, r *http.Request, body map[string]interface{}, t time.Time) error
+		Read(urlPrefix string, w http.ResponseWriter, r *http.Request) ([]byte, error)
+		Update(*http.Request) error
+		Do(action string, r *http.Request) error
 
 		IsCollection() bool
 	}
@@ -53,15 +53,14 @@ type (
 	Collection interface {
 		Resource
 
-		Create(*http.Request, map[string]interface{}, time.Time) (Resource, error)
-		Delete(string, map[string]interface{}, time.Time) error
+		Create(*http.Request) (Resource, error)
+		Delete(string) error
 	}
 
 	Context interface {
-		Prepare()
-		Now() time.Time
-		Success(time.Time, *http.Request, map[string]interface{})
-		Failure(time.Time, *http.Request, map[string]interface{})
+		Prepare(*http.Request)
+		Success(*http.Request)
+		Failure(*http.Request)
 	}
 
 	Handler struct {
@@ -129,15 +128,9 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
-func (ctx dummyContext) Prepare() {}
-
-func (ctx dummyContext) Now() time.Time {
-	return time.Now()
-}
-
-func (ctx dummyContext) Success(time.Time, *http.Request, map[string]interface{}) {}
-
-func (ctx dummyContext) Failure(time.Time, *http.Request, map[string]interface{}) {}
+func (ctx dummyContext) Prepare(*http.Request) {}
+func (ctx dummyContext) Success(*http.Request) {}
+func (ctx dummyContext) Failure(*http.Request) {}
 
 func NewHandler(res Resource, prefix string, ctx Context) *Handler {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
@@ -185,15 +178,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 
-	h.ctx.Prepare()
-	t := h.ctx.Now()
+	h.ctx.Prepare(r)
 
-	h.handle(lrw, r, data, t)
+	h.handle(lrw, r)
 
 	if lrw.success() {
-		h.ctx.Success(t, r, data)
+		h.ctx.Success(r)
 	} else {
-		h.ctx.Failure(t, r, data)
+		h.ctx.Failure(r)
 	}
 }
 
@@ -209,7 +201,7 @@ func readBody(r *http.Request) ([]byte, error) {
 	return body[0:n], nil
 }
 
-func (h *Handler) handle(w http.ResponseWriter, r *http.Request, body map[string]interface{}, t time.Time) {
+func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 	if h.res.Parent() != nil {
 		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(h.res)))
 	}
@@ -255,7 +247,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request, body map[string
 		return
 	}
 
-	handle(ch, postAction, h.prefix, w, r, body, t)
+	handle(ch, postAction, h.prefix, w, r)
 }
 
 func navigate(res Resource, steps []string) (Resource, []string) {
@@ -299,7 +291,7 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 	return res, []string{head}
 }
 
-func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request, body map[string]interface{}, t time.Time) {
+func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {
 	if index(res.AllowedMethods(), r.Method) == -1 {
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -320,7 +312,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 
-		res.Read(prefix, w, r, t)
+		res.Read(prefix, w, r)
 	case "POST":
 		if postAction != nil {
 			if index(res.AllowedActions(), *postAction) == -1 {
@@ -328,7 +320,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if e := res.Do(*postAction, r, body, t); e != nil {
+			if e := res.Do(*postAction, r); e != nil {
 				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.WriteHeader(http.StatusNoContent)
@@ -339,7 +331,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if ch, e := res.(Collection).Create(r, body, t); e != nil {
+			if ch, e := res.(Collection).Create(r); e != nil {
 				http.Error(w, e.Error(), http.StatusBadRequest)
 			} else {
 				w.Header().Set("Location", RelativeURL(prefix, ch).String())
@@ -347,7 +339,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 	case "PATCH":
-		if e := res.Update(r, body, t); e != nil {
+		if e := res.Update(r); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
@@ -363,7 +355,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			return
 		}
 
-		if e := res.Parent().(Collection).Delete(res.PathSegment(), body, t); e != nil {
+		if e := res.Parent().(Collection).Delete(res.PathSegment()); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)

@@ -13,11 +13,11 @@ import (
 
 type (
 	DataResource interface {
-		Data(string, *http.Request, time.Time) (interface{}, error)
+		Data(string, *http.Request) (interface{}, error)
 	}
 
 	RawReadResource interface {
-		ReadRaw(string, *http.Request, time.Time) ([]byte, error)
+		ReadRaw(string, *http.Request) ([]byte, error)
 	}
 
 	Digester interface {
@@ -26,13 +26,13 @@ type (
 
 	DefaultResourceImpl struct {
 		etagFunc        func() string
-		readRawFunc     func(string, *http.Request, time.Time) ([]byte, error)
+		readRawFunc     func(string, *http.Request) ([]byte, error)
 		Parent_         Resource
 		PathSegment_    string
 		IsCollection_   bool
 		Children        map[string]Resource
 		AllowedMethods_ []string
-		Actions         map[string]func(*http.Request, map[string]interface{}, time.Time) error
+		Actions         map[string]func(*http.Request) error
 		ContentType_    string
 		Gzip            bool
 		CacheDuration   time.Duration
@@ -49,7 +49,7 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourc
 		PathSegment_:    pathSegment,
 		Children:        map[string]Resource{},
 		AllowedMethods_: []string{"HEAD"},
-		Actions:         map[string]func(*http.Request, map[string]interface{}, time.Time) error{},
+		Actions:         map[string]func(*http.Request) error{},
 		ContentType_:    CONTENT_TYPE_JSON,
 		Gzip:            true,
 	}
@@ -60,8 +60,8 @@ func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
 		panic("Resource has Data function but non-JSON Content-Type")
 	}
 
-	d.readRawFunc = func(prefix string, r *http.Request, t time.Time) ([]byte, error) {
-		data, err := del.Data(prefix, r, t)
+	d.readRawFunc = func(prefix string, r *http.Request) ([]byte, error) {
+		data, err := del.Data(prefix, r)
 		if err != nil {
 			return nil, err
 		}
@@ -70,8 +70,8 @@ func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
 }
 
 func (d *DefaultResourceImpl) SetRawReadDelegate(del RawReadResource) {
-	d.readRawFunc = func(prefix string, r *http.Request, t time.Time) ([]byte, error) {
-		return del.ReadRaw(prefix, r, t)
+	d.readRawFunc = func(prefix string, r *http.Request) ([]byte, error) {
+		return del.ReadRaw(prefix, r)
 	}
 }
 
@@ -81,7 +81,7 @@ func (d *DefaultResourceImpl) SetDigester(dg Digester) {
 	}
 }
 
-func (d *DefaultResourceImpl) AddAction(action string, f func(*http.Request, map[string]interface{}, time.Time) error) {
+func (d *DefaultResourceImpl) AddAction(action string, f func(*http.Request) error) {
 	d.Actions[action] = f
 }
 
@@ -131,8 +131,8 @@ func (d *DefaultResourceImpl) ContentType() string {
 	return d.ContentType_
 }
 
-func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request, t time.Time) {
-	data, err := d.readRawFunc(urlPrefix, r, t)
+func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request) {
+	data, err := d.readRawFunc(urlPrefix, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -155,13 +155,13 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 	}
 }
 
-func (d *DefaultResourceImpl) Update(r *http.Request, body map[string]interface{}, t time.Time) error {
+func (d *DefaultResourceImpl) Update(r *http.Request) error {
 	panic("Not implemented")
 }
 
-func (d *DefaultResourceImpl) Do(action string, r *http.Request, body map[string]interface{}, t time.Time) error {
+func (d *DefaultResourceImpl) Do(action string, r *http.Request) error {
 	if a := d.Actions[action]; a != nil {
-		return a(r, body, t)
+		return a(r)
 	}
 
 	panic("Not implemented")
@@ -171,10 +171,10 @@ func (d *DefaultResourceImpl) IsCollection() bool {
 	return d.IsCollection_
 }
 
-func (d *DefaultResourceImpl) Create(r *http.Request, body map[string]interface{}, t time.Time) (Resource, error) {
+func (d *DefaultResourceImpl) Create(r *http.Request) (Resource, error) {
 	panic("Not implemented")
 }
 
-func (d *DefaultResourceImpl) Delete(s string, body map[string]interface{}, t time.Time) error {
+func (d *DefaultResourceImpl) Delete(s string) error {
 	panic("Not implemented")
 }

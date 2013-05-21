@@ -144,6 +144,7 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 		gz.Write(data)
 		gz.Close()
 
+		w.Header().Set("Vary", "Accept-Encoding")
 		w.Header().Set("Content-Encoding", "gzip")
 		w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
 		w.WriteHeader(http.StatusOK)

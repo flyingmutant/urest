@@ -156,7 +156,7 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 	}
 }
 
-func (d *DefaultResourceImpl) Update(r *http.Request) error {
+func (*DefaultResourceImpl) Update(*http.Request) error {
 	panic("Not implemented")
 }
 
@@ -172,10 +172,10 @@ func (d *DefaultResourceImpl) IsCollection() bool {
 	return d.IsCollection_
 }
 
-func (d *DefaultResourceImpl) Create(r *http.Request) (Resource, error) {
+func (*DefaultResourceImpl) Create(*http.Request) (Resource, error) {
 	panic("Not implemented")
 }
 
-func (d *DefaultResourceImpl) Delete(s string) error {
+func (*DefaultResourceImpl) Delete(string, *http.Request) error {
 	panic("Not implemented")
 }

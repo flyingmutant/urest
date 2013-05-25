@@ -54,7 +54,7 @@ type (
 		Resource
 
 		Create(*http.Request) (Resource, error)
-		Delete(string) error
+		Delete(string, *http.Request) error
 	}
 
 	Context interface {
@@ -342,7 +342,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			return
 		}
 
-		if e := res.Parent().(Collection).Delete(res.PathSegment()); e != nil {
+		if e := res.Parent().(Collection).Delete(res.PathSegment(), r); e != nil {
 			http.Error(w, e.Error(), http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusNoContent)

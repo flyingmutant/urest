@@ -308,7 +308,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 
 			if e := res.Do(*postAction, r); e != nil {
-				http.Error(w, e.Error(), http.StatusBadRequest)
+				reportError(w, e)
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 			}
@@ -319,7 +319,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 
 			if ch, e := res.(Collection).Create(r); e != nil {
-				http.Error(w, e.Error(), http.StatusBadRequest)
+				reportError(w, e)
 			} else {
 				w.Header().Set("Location", RelativeURL(prefix, ch).String())
 				w.WriteHeader(http.StatusCreated)
@@ -327,7 +327,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 	case "PATCH":
 		if e := res.Update(r); e != nil {
-			http.Error(w, e.Error(), http.StatusBadRequest)
+			reportError(w, e)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
@@ -343,11 +343,51 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 
 		if e := res.Parent().(Collection).Delete(res.PathSegment(), r); e != nil {
-			http.Error(w, e.Error(), http.StatusBadRequest)
+			reportError(w, e)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
 	}
+}
+
+func reportError(w http.ResponseWriter, err error) {
+	errorCodes := []int{
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusPaymentRequired,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusMethodNotAllowed,
+		http.StatusNotAcceptable,
+		http.StatusProxyAuthRequired,
+		http.StatusRequestTimeout,
+		http.StatusConflict,
+		http.StatusGone,
+		http.StatusLengthRequired,
+		http.StatusPreconditionFailed,
+		http.StatusRequestEntityTooLarge,
+		http.StatusRequestURITooLong,
+		http.StatusUnsupportedMediaType,
+		http.StatusRequestedRangeNotSatisfiable,
+		http.StatusExpectationFailed,
+		http.StatusTeapot,
+
+		http.StatusInternalServerError,
+		http.StatusNotImplemented,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
+		http.StatusHTTPVersionNotSupported,
+	}
+
+	e := err.Error()
+	for _, code := range errorCodes {
+		if http.StatusText(code) == e {
+			http.Error(w, e, code)
+			return
+		}
+	}
+	http.Error(w, e, http.StatusBadRequest)
 }
 
 func index(arr []string, s string) int {

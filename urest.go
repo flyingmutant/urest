@@ -383,7 +383,7 @@ func reportError(w http.ResponseWriter, err error) {
 	e := err.Error()
 	for _, code := range errorCodes {
 		if http.StatusText(code) == e {
-			http.Error(w, e, code)
+			http.Error(w, fmt.Sprintf("%d %s", code, e), code)
 			return
 		}
 	}

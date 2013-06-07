@@ -403,17 +403,23 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 	if ct := res.ContentType(); ct != "" {
 		w.Header().Set("Content-Type", ct)
 	}
-	if etag := res.ETag(); etag != "" {
-		w.Header().Set("ETag", etag)
-	}
 	if t := res.Expires(); !t.IsZero() {
 		w.Header().Set("Expires", t.Format(time.RFC1123))
 	}
-	if cc := res.CacheControl(); cc != "" {
+	cc := res.CacheControl()
+	if cc != "" {
 		w.Header().Set("Cache-Control", cc)
+	}
+	if etag := res.ETag(); etag != "" {
+		w.Header().Set("ETag", etag)
+		if cc == "" {
+			w.Header().Set("Cache-Control", CacheControl(time.Hour*24*7))
+		}
 	} else {
-		w.Header().Set("Pragma", "no-cache")
-		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		if cc == "" {
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		}
 	}
 }
 

@@ -413,7 +413,7 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 	if etag := res.ETag(); etag != "" {
 		w.Header().Set("ETag", etag)
 		if cc == "" {
-			w.Header().Set("Cache-Control", CacheControl(time.Hour*24*7))
+			w.Header().Set("Cache-Control", CacheControl(0))
 		}
 	} else {
 		if cc == "" {

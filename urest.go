@@ -292,8 +292,8 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		w.WriteHeader(http.StatusOK)
 	case "GET":
 		setHeaders(res, w)
-		if etag := res.ETag(); etag != "" {
-			if r.Header.Get("If-None-Match") == etag {
+		if et := etag(res); et != "" {
+			if r.Header.Get("If-None-Match") == et {
 				w.WriteHeader(http.StatusNotModified)
 				return
 			}
@@ -350,6 +350,40 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 	}
 }
 
+func setHeaders(res Resource, w http.ResponseWriter) {
+	if ct := res.ContentType(); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	if t := res.Expires(); !t.IsZero() {
+		w.Header().Set("Expires", t.Format(time.RFC1123))
+	}
+	cc := res.CacheControl()
+	if cc != "" {
+		w.Header().Set("Cache-Control", cc)
+	}
+	if et := etag(res); et != "" {
+		w.Header().Set("ETag", et)
+		if cc == "" {
+			w.Header().Set("Cache-Control", CacheControl(0))
+		}
+	} else {
+		if cc == "" {
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		}
+	}
+}
+
+func etag(res Resource) string {
+	for res != nil {
+		if et := res.ETag(); et != "" {
+			return et
+		}
+		res = res.Parent()
+	}
+	return ""
+}
+
 func reportError(w http.ResponseWriter, err error) {
 	errorCodes := []int{
 		http.StatusBadRequest,
@@ -388,39 +422,6 @@ func reportError(w http.ResponseWriter, err error) {
 		}
 	}
 	http.Error(w, e, http.StatusBadRequest)
-}
-
-func index(arr []string, s string) int {
-	for i, e := range arr {
-		if e == s {
-			return i
-		}
-	}
-	return -1
-}
-
-func setHeaders(res Resource, w http.ResponseWriter) {
-	if ct := res.ContentType(); ct != "" {
-		w.Header().Set("Content-Type", ct)
-	}
-	if t := res.Expires(); !t.IsZero() {
-		w.Header().Set("Expires", t.Format(time.RFC1123))
-	}
-	cc := res.CacheControl()
-	if cc != "" {
-		w.Header().Set("Cache-Control", cc)
-	}
-	if etag := res.ETag(); etag != "" {
-		w.Header().Set("ETag", etag)
-		if cc == "" {
-			w.Header().Set("Cache-Control", CacheControl(0))
-		}
-	} else {
-		if cc == "" {
-			w.Header().Set("Pragma", "no-cache")
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		}
-	}
 }
 
 func AbsoluteURL(r *http.Request, prefix string, res Resource) *url.URL {
@@ -466,4 +467,13 @@ func relativeURL(res Resource) *url.URL {
 	}
 
 	return &url.URL{Path: path}
+}
+
+func index(arr []string, s string) int {
+	for i, e := range arr {
+		if e == s {
+			return i
+		}
+	}
+	return -1
 }

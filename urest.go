@@ -38,7 +38,7 @@ type (
 		AllowedMethods() []string
 		AllowedActions() []string
 
-		ETag() string
+		ETag(*http.Request) string
 		Expires() time.Time
 		CacheControl() string
 		ContentType() string
@@ -287,12 +287,12 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 
 	switch r.Method {
 	case "HEAD":
-		setHeaders(res, w)
+		setHeaders(res, w, r)
 		w.Header().Set("Allow", strings.Join(res.AllowedMethods(), ", "))
 		w.WriteHeader(http.StatusOK)
 	case "GET":
-		setHeaders(res, w)
-		if et := etag(res); et != "" {
+		setHeaders(res, w, r)
+		if et := etag(res, r); et != "" {
 			if r.Header.Get("If-None-Match") == et {
 				w.WriteHeader(http.StatusNotModified)
 				return
@@ -350,7 +350,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 	}
 }
 
-func setHeaders(res Resource, w http.ResponseWriter) {
+func setHeaders(res Resource, w http.ResponseWriter, r *http.Request) {
 	if ct := res.ContentType(); ct != "" {
 		w.Header().Set("Content-Type", ct)
 	}
@@ -361,7 +361,7 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 	if cc != "" {
 		w.Header().Set("Cache-Control", cc)
 	}
-	if et := etag(res); et != "" {
+	if et := etag(res, r); et != "" {
 		w.Header().Set("ETag", et)
 		if cc == "" {
 			w.Header().Set("Cache-Control", CacheControl(0))
@@ -374,9 +374,9 @@ func setHeaders(res Resource, w http.ResponseWriter) {
 	}
 }
 
-func etag(res Resource) string {
+func etag(res Resource, r *http.Request) string {
 	for res != nil {
-		if et := res.ETag(); et != "" {
+		if et := res.ETag(r); et != "" {
 			return et
 		}
 		res = res.Parent()

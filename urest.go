@@ -57,19 +57,10 @@ type (
 		Delete(string, *http.Request) error
 	}
 
-	Context interface {
-		Prepare(*http.Request) error
-		Success(*http.Request)
-		Failure(*http.Request)
-	}
-
 	Handler struct {
 		res    Resource
 		prefix string
-		ctx    Context
 	}
-
-	dummyContext struct{}
 
 	loggingResponseWriter struct {
 		http.ResponseWriter
@@ -136,24 +127,12 @@ func tColor(s string, color string) string {
 	return color + s + t_RESET
 }
 
-func (ctx dummyContext) Prepare(*http.Request) error { return nil }
-func (ctx dummyContext) Success(*http.Request)       {}
-func (ctx dummyContext) Failure(*http.Request)       {}
-
-func NewHandler(res Resource, prefix string, ctx Context) *Handler {
+func NewHandler(res Resource, prefix string) *Handler {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
 	}
 
-	if ctx == nil {
-		ctx = dummyContext{}
-	}
-
-	return &Handler{
-		res:    res,
-		prefix: prefix,
-		ctx:    ctx,
-	}
+	return &Handler{res, prefix}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -173,19 +152,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestData[r] = map[string]interface{}{}
 	defer delete(requestData, r)
 
-	if err := h.ctx.Prepare(r); err != nil {
-		log.Printf("Failed to prepare request context: %v", err)
-		http.Error(w, "Failed to prepare request context", http.StatusBadRequest)
-		return
-	}
-
 	h.handle(lrw, r)
-
-	if lrw.success() {
-		h.ctx.Success(r)
-	} else {
-		h.ctx.Failure(r)
-	}
 }
 
 func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {

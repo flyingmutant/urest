@@ -72,6 +72,9 @@ type (
 )
 
 func SetRequestData(r *http.Request, name string, data interface{}) {
+	if _, ok := requestData[r]; !ok {
+		requestData[r] = map[string]interface{}{}
+	}
 	requestData[r][name] = data
 }
 
@@ -149,7 +152,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 
-	requestData[r] = map[string]interface{}{}
 	defer delete(requestData, r)
 
 	h.handle(lrw, r)

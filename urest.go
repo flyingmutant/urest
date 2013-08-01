@@ -33,7 +33,7 @@ type (
 	Resource interface {
 		Parent() Resource
 		PathSegment() string
-		Child(string) Resource
+		Child(string, *http.Request) Resource
 
 		AllowedMethods() []string
 		AllowedActions() []string
@@ -202,7 +202,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 		steps = []string{}
 	}
 
-	ch, rest := navigate(h.res, steps)
+	ch, rest := navigate(h.res, steps, r)
 	if ch == nil {
 		if rest == nil {
 			u := *r.URL
@@ -237,7 +237,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 	handle(ch, postAction, h.prefix, w, r)
 }
 
-func navigate(res Resource, steps []string) (Resource, []string) {
+func navigate(res Resource, steps []string, r *http.Request) (Resource, []string) {
 	if len(steps) == 0 {
 		if res.IsCollection() {
 			// collection URL without a trailing '/'
@@ -263,11 +263,11 @@ func navigate(res Resource, steps []string) (Resource, []string) {
 		}
 	}
 
-	if ch := res.Child(head); ch != nil {
+	if ch := res.Child(head, r); ch != nil {
 		if ch.PathSegment() != head {
 			panic(fmt.Sprintf("Resource '%v' has wrong path segment ('%v' / '%v')", relativeURL(ch), ch.PathSegment(), head))
 		}
-		return navigate(ch, rest)
+		return navigate(ch, rest, r)
 	}
 
 	if len(rest) != 0 {

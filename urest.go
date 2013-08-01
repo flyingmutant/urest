@@ -82,45 +82,45 @@ func GetRequestData(r *http.Request, name string) interface{} {
 	return requestData[r][name]
 }
 
-func (lrw *loggingResponseWriter) WriteHeader(status int) {
-	lrw.ResponseWriter.WriteHeader(status)
-	lrw.status = status
+func (w *loggingResponseWriter) WriteHeader(status int) {
+	w.ResponseWriter.WriteHeader(status)
+	w.status = status
 }
 
-func (lrw *loggingResponseWriter) Write(data []byte) (int, error) {
-	lrw.size += len(data)
-	return lrw.ResponseWriter.Write(data)
+func (w *loggingResponseWriter) Write(data []byte) (int, error) {
+	w.size += len(data)
+	return w.ResponseWriter.Write(data)
 }
 
-func (lrw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return lrw.ResponseWriter.(http.Hijacker).Hijack()
+func (w *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return w.ResponseWriter.(http.Hijacker).Hijack()
 }
 
-func (lrw *loggingResponseWriter) success() bool {
-	return lrw.status >= 200 && lrw.status < 300
+func (w *loggingResponseWriter) success() bool {
+	return w.status >= 200 && w.status < 300
 }
 
-func (lrw *loggingResponseWriter) log() {
-	d := time.Now().Sub(lrw.start)
+func (w *loggingResponseWriter) log() {
+	d := time.Now().Sub(w.start)
 	dC := tColor(fmt.Sprintf("%v", d), t_FG_CYAN)
 
-	statusC := fmt.Sprintf("%v", lrw.status)
-	if lrw.success() {
+	statusC := fmt.Sprintf("%v", w.status)
+	if w.success() {
 		statusC = tColor(statusC, t_FG_GREEN)
-	} else if lrw.status >= 400 {
-		statusC = tColor(fmt.Sprintf("%v", lrw.status), t_FG_RED)
+	} else if w.status >= 400 {
+		statusC = tColor(fmt.Sprintf("%v", w.status), t_FG_RED)
 	}
 
-	methodC := tColor(lrw.r.Method, t_FG_YELLOW)
+	methodC := tColor(w.r.Method, t_FG_YELLOW)
 
 	sizeS := ""
-	if lrw.size != 0 {
-		sizeS = fmt.Sprintf(", %v bytes", lrw.size)
+	if w.size != 0 {
+		sizeS = fmt.Sprintf(", %v bytes", w.size)
 	}
 
-	uri := lrw.r.RequestURI
+	uri := w.r.RequestURI
 	if uri == "" {
-		uri = "@" + lrw.r.URL.String()
+		uri = "@" + w.r.URL.String()
 	}
 
 	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, uri, dC, sizeS)

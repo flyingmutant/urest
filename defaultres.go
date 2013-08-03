@@ -120,7 +120,7 @@ func (d *DefaultResourceImpl) ContentType() string {
 func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request) {
 	data, err := d.readRawFunc(urlPrefix, r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		reportError(w, err)
 		return
 	}
 

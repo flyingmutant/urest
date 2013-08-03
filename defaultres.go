@@ -21,7 +21,6 @@ type (
 	}
 
 	DefaultResourceImpl struct {
-		Digest          func(*http.Request) []byte
 		readRawFunc     func(string, *http.Request) ([]byte, error)
 		Parent_         Resource
 		PathSegment_    string
@@ -100,10 +99,7 @@ func (d *DefaultResourceImpl) AllowedActions() []string {
 }
 
 func (d *DefaultResourceImpl) ETag(r *http.Request) string {
-	if d.Digest == nil {
-		return ""
-	}
-	return fmt.Sprintf("%x", d.Digest(r))
+	return ""
 }
 
 func (d *DefaultResourceImpl) Expires() time.Time {

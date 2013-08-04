@@ -60,6 +60,9 @@ func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
 		if err != nil {
 			return nil, err
 		}
+		if data == nil {
+			return []byte{}, nil
+		}
 		return json.Marshal(data)
 	}
 }

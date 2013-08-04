@@ -118,12 +118,7 @@ func (w *loggingResponseWriter) log() {
 		sizeS = fmt.Sprintf(", %v bytes", w.size)
 	}
 
-	uri := w.r.RequestURI
-	if uri == "" {
-		uri = "@" + w.r.URL.String()
-	}
-
-	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, uri, dC, sizeS)
+	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, w.r.RequestURI, dC, sizeS)
 }
 
 func tColor(s string, color string) string {
@@ -148,7 +143,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
-	defer lrw.log()
+	if r.RequestURI != "" {
+		// ignore faked requests
+		defer lrw.log()
+	}
 
 	w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 

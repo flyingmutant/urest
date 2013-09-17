@@ -122,6 +122,9 @@ func (w *loggingResponseWriter) log() {
 }
 
 func tColor(s string, color string) string {
+	if runtime.GOOS == "windows" {
+		return s
+	}
 	return color + s + t_RESET
 }
 

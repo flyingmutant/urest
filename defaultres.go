@@ -27,7 +27,7 @@ type (
 		IsCollection_   bool
 		Children        map[string]Resource
 		AllowedMethods_ []string
-		Actions         map[string]func(*http.Request) error
+		Actions         map[string]func(http.ResponseWriter, *http.Request) error
 		ContentType_    string
 		Gzip            bool
 		CacheDuration   time.Duration
@@ -44,7 +44,7 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourc
 		PathSegment_:    pathSegment,
 		Children:        map[string]Resource{},
 		AllowedMethods_: []string{"HEAD"},
-		Actions:         map[string]func(*http.Request) error{},
+		Actions:         map[string]func(http.ResponseWriter, *http.Request) error{},
 		ContentType_:    CONTENT_TYPE_JSON,
 		Gzip:            true,
 	}
@@ -73,7 +73,7 @@ func (d *DefaultResourceImpl) SetRawReadDelegate(del RawReadResource) {
 	}
 }
 
-func (d *DefaultResourceImpl) AddAction(action string, f func(*http.Request) error) {
+func (d *DefaultResourceImpl) AddAction(action string, f func(http.ResponseWriter, *http.Request) error) {
 	d.Actions[action] = f
 }
 
@@ -120,11 +120,10 @@ func (d *DefaultResourceImpl) ContentType() string {
 	return d.ContentType_
 }
 
-func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request) {
+func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request) error {
 	data, err := d.readRawFunc(urlPrefix, r)
 	if err != nil {
-		reportError(w, err)
-		return
+		return err
 	}
 
 	if d.Gzip && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
@@ -143,15 +142,17 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
 	}
+
+	return nil
 }
 
 func (*DefaultResourceImpl) Update(*http.Request) error {
 	panic("Not implemented")
 }
 
-func (d *DefaultResourceImpl) Do(action string, r *http.Request) error {
+func (d *DefaultResourceImpl) Do(action string, w http.ResponseWriter, r *http.Request) error {
 	if a := d.Actions[action]; a != nil {
-		return a(r)
+		return a(w, r)
 	}
 
 	panic("Not implemented")

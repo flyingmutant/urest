@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -43,9 +44,9 @@ type (
 		CacheControl() string
 		ContentType() string
 
-		Read(urlPrefix string, w http.ResponseWriter, r *http.Request)
+		Read(urlPrefix string, w http.ResponseWriter, r *http.Request) error
 		Update(*http.Request) error
-		Do(action string, r *http.Request) error
+		Do(action string, w http.ResponseWriter, r *http.Request) error
 
 		IsCollection() bool
 	}
@@ -269,7 +270,9 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 		}
 
-		res.Read(prefix, w, r)
+		if e := res.Read(prefix, w, r); e != nil {
+			reportError(w, e)
+		}
 	case "POST":
 		if postAction != nil {
 			if index(res.AllowedActions(), *postAction) == -1 {
@@ -277,10 +280,8 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if e := res.Do(*postAction, r); e != nil {
+			if e := res.Do(*postAction, w, r); e != nil {
 				reportError(w, e)
-			} else {
-				w.WriteHeader(http.StatusNoContent)
 			}
 		} else {
 			if !res.IsCollection() {
@@ -386,8 +387,8 @@ func reportError(w http.ResponseWriter, err error) {
 
 	e := err.Error()
 	for _, code := range errorCodes {
-		if http.StatusText(code) == e {
-			http.Error(w, fmt.Sprintf("%d %s", code, e), code)
+		if strings.HasPrefix(e, strconv.Itoa(code)+" ") {
+			http.Error(w, e, code)
 			return
 		}
 	}

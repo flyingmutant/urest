@@ -46,6 +46,7 @@ type (
 
 		Read(urlPrefix string, w http.ResponseWriter, r *http.Request) error
 		Update(*http.Request) error
+		Replace(*http.Request) error
 		Do(action string, w http.ResponseWriter, r *http.Request) error
 
 		IsCollection() bool
@@ -284,16 +285,17 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				reportError(w, e)
 			}
 		} else {
-			if !res.IsCollection() {
-				http.Error(w, "Not a collection", http.StatusBadRequest)
-				return
-			}
-
-			if ch, e := res.(Collection).Create(r); e != nil {
-				reportError(w, e)
+			if res.IsCollection() {
+				if ch, e := res.(Collection).Create(r); e != nil {
+					reportError(w, e)
+				} else {
+					w.Header().Set("Location", RelativeURL(prefix, ch).String())
+					w.WriteHeader(http.StatusCreated)
+				}
 			} else {
-				w.Header().Set("Location", RelativeURL(prefix, ch).String())
-				w.WriteHeader(http.StatusCreated)
+				if e := res.Replace(r); e != nil {
+					reportError(w, e)
+				}
 			}
 		}
 	case "PATCH":

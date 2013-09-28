@@ -150,6 +150,10 @@ func (*DefaultResourceImpl) Update(*http.Request) error {
 	panic("Not implemented")
 }
 
+func (*DefaultResourceImpl) Replace(*http.Request) error {
+	panic("Not implemented")
+}
+
 func (d *DefaultResourceImpl) Do(action string, w http.ResponseWriter, r *http.Request) error {
 	if a := d.Actions[action]; a != nil {
 		return a(w, r)

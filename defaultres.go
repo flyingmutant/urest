@@ -27,7 +27,7 @@ type (
 		IsCollection_   bool
 		Children        map[string]Resource
 		AllowedMethods_ []string
-		Actions         map[string]func(http.ResponseWriter, *http.Request) error
+		Actions         map[string]func(*http.Request) error
 		ContentType_    string
 		Gzip            bool
 		CacheDuration   time.Duration
@@ -44,7 +44,7 @@ func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourc
 		PathSegment_:    pathSegment,
 		Children:        map[string]Resource{},
 		AllowedMethods_: []string{"HEAD"},
-		Actions:         map[string]func(http.ResponseWriter, *http.Request) error{},
+		Actions:         map[string]func(*http.Request) error{},
 		ContentType_:    CONTENT_TYPE_JSON,
 		Gzip:            true,
 	}
@@ -73,7 +73,7 @@ func (d *DefaultResourceImpl) SetRawReadDelegate(del RawReadResource) {
 	}
 }
 
-func (d *DefaultResourceImpl) AddAction(action string, f func(http.ResponseWriter, *http.Request) error) {
+func (d *DefaultResourceImpl) AddAction(action string, f func(*http.Request) error) {
 	d.Actions[action] = f
 }
 
@@ -154,9 +154,9 @@ func (*DefaultResourceImpl) Replace(*http.Request) error {
 	panic("Not implemented")
 }
 
-func (d *DefaultResourceImpl) Do(action string, w http.ResponseWriter, r *http.Request) error {
+func (d *DefaultResourceImpl) Do(action string, r *http.Request) error {
 	if a := d.Actions[action]; a != nil {
-		return a(w, r)
+		return a(r)
 	}
 
 	panic("Not implemented")

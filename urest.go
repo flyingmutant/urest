@@ -17,7 +17,7 @@ import (
 const (
 	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
 
-	SERVER = "uREST/0.2"
+	SERVER = "uREST/0.3"
 
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"
@@ -47,7 +47,7 @@ type (
 		Read(urlPrefix string, w http.ResponseWriter, r *http.Request) error
 		Update(*http.Request) error
 		Replace(*http.Request) error
-		Do(action string, w http.ResponseWriter, r *http.Request) error
+		Do(action string, r *http.Request) error
 
 		IsCollection() bool
 	}
@@ -143,7 +143,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if rec := recover(); rec != nil {
 			log.Printf("%v: %v", tColor("PANIC", t_FG_RED), rec)
 			debug.PrintStack()
-			http.Error(w, "Server panic", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Server panic: %v", rec), http.StatusInternalServerError)
 		}
 	}()
 
@@ -281,7 +281,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				return
 			}
 
-			if e := res.Do(*postAction, w, r); e != nil {
+			if e := res.Do(*postAction, r); e != nil {
 				reportError(w, e)
 			}
 		} else {

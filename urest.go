@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
-
 	SERVER = "uREST/0.3"
 
 	t_RESET     = "\x1b[0m"
@@ -284,6 +282,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			if e := res.Do(*postAction, r); e != nil {
 				reportError(w, e)
 			}
+			w.WriteHeader(http.StatusNoContent)
 		} else {
 			if res.IsCollection() {
 				if ch, e := res.(Collection).Create(r); e != nil {
@@ -296,6 +295,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 				if e := res.Replace(r); e != nil {
 					reportError(w, e)
 				}
+				w.WriteHeader(http.StatusNoContent)
 			}
 		}
 	case "PATCH":

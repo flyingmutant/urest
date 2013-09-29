@@ -125,6 +125,10 @@ func (d *DefaultResourceImpl) ContentType() string {
 }
 
 func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *http.Request) error {
+	if d.readRawFunc == nil {
+		panic("Not implemented")
+	}
+
 	data, err := d.readRawFunc(urlPrefix, r)
 	if err != nil {
 		return err

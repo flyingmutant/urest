@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	SERVER = "uREST/0.3"
+	HEADER_X_RESOURCE_ID = "X-Resource-ID"
+	SERVER               = "uREST/0.3"
 
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"
@@ -289,6 +290,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 					reportError(w, e)
 				} else {
 					w.Header().Set("Location", RelativeURL(prefix, ch).String())
+					w.Header().Set(HEADER_X_RESOURCE_ID, ch.PathSegment())
 					w.WriteHeader(http.StatusCreated)
 				}
 			} else {

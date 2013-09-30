@@ -281,8 +281,9 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 
 			if e := res.Do(*postAction, r); e != nil {
 				reportError(w, e)
+			} else {
+				w.WriteHeader(http.StatusNoContent)
 			}
-			w.WriteHeader(http.StatusNoContent)
 		} else {
 			if res.IsCollection() {
 				if ch, e := res.(Collection).Create(r); e != nil {
@@ -294,8 +295,9 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			} else {
 				if e := res.Replace(r); e != nil {
 					reportError(w, e)
+				} else {
+					w.WriteHeader(http.StatusNoContent)
 				}
-				w.WriteHeader(http.StatusNoContent)
 			}
 		}
 	case "PATCH":

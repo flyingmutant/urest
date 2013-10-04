@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	SERVER = "uREST/0.3"
-
 	t_RESET     = "\x1b[0m"
 	t_FG_RED    = "\x1b[31m"
 	t_FG_GREEN  = "\x1b[32m"
@@ -150,8 +148,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// ignore faked requests
 		defer lrw.log()
 	}
-
-	w.Header().Set("Server", fmt.Sprintf("%v (%v %v)", SERVER, runtime.GOOS, runtime.GOARCH))
 
 	defer delete(requestData, r)
 
@@ -330,7 +326,7 @@ func setHeaders(res Resource, w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", ct)
 	}
 	if t := res.Expires(); !t.IsZero() {
-		w.Header().Set("Expires", t.Format(time.RFC1123))
+		w.Header().Set("Expires", t.Format(http.TimeFormat))
 	}
 	cc := res.CacheControl()
 	if cc != "" {

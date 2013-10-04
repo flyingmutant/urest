@@ -328,20 +328,13 @@ func setHeaders(res Resource, w http.ResponseWriter, r *http.Request) {
 	if t := res.Expires(); !t.IsZero() {
 		w.Header().Set("Expires", t.Format(http.TimeFormat))
 	}
-	cc := res.CacheControl()
-	if cc != "" {
+	if cc := res.CacheControl(); cc != "" {
 		w.Header().Set("Cache-Control", cc)
+	} else {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	}
 	if et := etag(res, r); et != "" {
 		w.Header().Set("ETag", et)
-		if cc == "" {
-			w.Header().Set("Cache-Control", CacheControl(0))
-		}
-	} else {
-		if cc == "" {
-			w.Header().Set("Pragma", "no-cache")
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		}
 	}
 }
 

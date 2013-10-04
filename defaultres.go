@@ -38,10 +38,6 @@ type (
 	}
 )
 
-func CacheControl(maxAge time.Duration) string {
-	return fmt.Sprintf("max-age=%d, must-revalidate", maxAge/time.Second)
-}
-
 func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourceImpl {
 	return &DefaultResourceImpl{
 		Parent_:         parent,
@@ -110,14 +106,17 @@ func (d *DefaultResourceImpl) ETag(r *http.Request) string {
 }
 
 func (d *DefaultResourceImpl) Expires() time.Time {
-	return time.Time{}
+	if d.CacheDuration == 0 {
+		return time.Time{}
+	}
+	return time.Now().Add(d.CacheDuration)
 }
 
 func (d *DefaultResourceImpl) CacheControl() string {
 	if d.CacheDuration == 0 {
 		return ""
 	}
-	return CacheControl(d.CacheDuration)
+	return fmt.Sprintf("max-age=%d", d.CacheDuration/time.Second)
 }
 
 func (d *DefaultResourceImpl) ContentType() string {
@@ -134,20 +133,18 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 		return err
 	}
 
+	w.Header().Set("Vary", "Accept-Encoding")
 	if d.Gzip && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		b := bytes.Buffer{}
 		gz := gzip.NewWriter(&b)
 		gz.Write(data)
 		gz.Close()
 
-		w.Header().Set("Vary", "Accept-Encoding")
 		w.Header().Set("Content-Encoding", "gzip")
 		w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
-		w.WriteHeader(http.StatusOK)
 		w.Write(b.Bytes())
 	} else {
 		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-		w.WriteHeader(http.StatusOK)
 		w.Write(data)
 	}
 

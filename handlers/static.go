@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"compress/gzip"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,20 +10,20 @@ import (
 )
 
 type (
-	StaticHandler struct {
+	staticHandler struct {
 		basePath  string
 		urlPrefix string
 	}
 )
 
-func NewStaticHandler(basePath string, urlPrefix string) *StaticHandler {
-	return &StaticHandler{
+func NewStaticHandler(basePath string, urlPrefix string) http.Handler {
+	return NewGzipHandler(true, &staticHandler{
 		basePath:  basePath,
 		urlPrefix: urlPrefix,
-	}
+	})
 }
 
-func (h StaticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := path.Join(h.basePath, r.URL.Path[len(h.urlPrefix):])
 
 	if isHiddenPath(p) {
@@ -48,23 +47,7 @@ func (h StaticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
 
-	toGzip := false
-	for _, ext := range []string{".html", ".css", ".js", ".map", ".yml", ".xml", ".json", ".txt", ".md", ".csv", ".svg"} {
-		if path.Ext(p) == ext {
-			toGzip = true
-			break
-		}
-	}
-	w.Header().Set("Vary", "Accept-Encoding")
-
-	if !toGzip || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		http.ServeFile(w, r, p)
-	} else {
-		w.Header().Set("Content-Encoding", "gzip")
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		http.ServeFile(gzipResponseWriter{gz, w}, r, p)
-	}
+	http.ServeFile(w, r, p)
 }
 
 func isHiddenPath(p string) bool {

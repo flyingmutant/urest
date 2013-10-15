@@ -8,7 +8,7 @@ import (
 )
 
 type (
-	GzipHandler struct {
+	gzipHandler struct {
 		checkExt bool
 		h        http.Handler
 	}
@@ -19,14 +19,14 @@ type (
 	}
 )
 
-func NewGzipHandler(checkExt bool, h http.Handler) *GzipHandler {
-	return &GzipHandler{
+func NewGzipHandler(checkExt bool, h http.Handler) *gzipHandler {
+	return &gzipHandler{
 		checkExt: checkExt,
 		h:        h,
 	}
 }
 
-func (h *GzipHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *gzipHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	toGzip := true
 	if h.checkExt {
 		toGzip = false

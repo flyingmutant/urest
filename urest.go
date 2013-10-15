@@ -1,25 +1,14 @@
 package urest
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
-	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
-)
-
-const (
-	t_RESET     = "\x1b[0m"
-	t_FG_RED    = "\x1b[31m"
-	t_FG_GREEN  = "\x1b[32m"
-	t_FG_YELLOW = "\x1b[33m"
-	t_FG_CYAN   = "\x1b[36m"
 )
 
 var (
@@ -59,14 +48,6 @@ type (
 		res    Resource
 		prefix string
 	}
-
-	loggingResponseWriter struct {
-		http.ResponseWriter
-		r      *http.Request
-		status int
-		start  time.Time
-		size   int
-	}
 )
 
 func SetRequestData(r *http.Request, name string, data interface{}) {
@@ -80,52 +61,6 @@ func GetRequestData(r *http.Request, name string) interface{} {
 	return requestData[r][name]
 }
 
-func (w *loggingResponseWriter) WriteHeader(status int) {
-	w.ResponseWriter.WriteHeader(status)
-	w.status = status
-}
-
-func (w *loggingResponseWriter) Write(data []byte) (int, error) {
-	w.size += len(data)
-	return w.ResponseWriter.Write(data)
-}
-
-func (w *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return w.ResponseWriter.(http.Hijacker).Hijack()
-}
-
-func (w *loggingResponseWriter) success() bool {
-	return w.status >= 200 && w.status < 300
-}
-
-func (w *loggingResponseWriter) log() {
-	d := time.Now().Sub(w.start)
-	dC := tColor(fmt.Sprintf("%v", d), t_FG_CYAN)
-
-	statusC := fmt.Sprintf("%v", w.status)
-	if w.success() {
-		statusC = tColor(statusC, t_FG_GREEN)
-	} else if w.status >= 400 {
-		statusC = tColor(fmt.Sprintf("%v", w.status), t_FG_RED)
-	}
-
-	methodC := tColor(w.r.Method, t_FG_YELLOW)
-
-	sizeS := ""
-	if w.size != 0 {
-		sizeS = fmt.Sprintf(", %v bytes", w.size)
-	}
-
-	log.Printf("[%v] %v %v (%v%v)", statusC, methodC, w.r.RequestURI, dC, sizeS)
-}
-
-func tColor(s string, color string) string {
-	if runtime.GOOS == "windows" {
-		return s
-	}
-	return color + s + t_RESET
-}
-
 func NewHandler(res Resource, prefix string) *Handler {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
@@ -137,21 +72,15 @@ func NewHandler(res Resource, prefix string) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			log.Printf("%v: %v", tColor("PANIC", t_FG_RED), rec)
+			log.Printf("PANIC: %v", rec)
 			debug.PrintStack()
 			http.Error(w, fmt.Sprintf("Server panic: %v", rec), http.StatusInternalServerError)
 		}
 	}()
 
-	lrw := &loggingResponseWriter{w, r, http.StatusOK, time.Now(), 0}
-	if r.RequestURI != "" {
-		// ignore faked requests
-		defer lrw.log()
-	}
-
 	defer delete(requestData, r)
 
-	h.handle(lrw, r)
+	h.handle(w, r)
 }
 
 func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {

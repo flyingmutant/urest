@@ -11,10 +11,6 @@ import (
 	"time"
 )
 
-const (
-	CONTENT_TYPE_JSON = "application/json; charset=utf-8"
-)
-
 type (
 	DataResource interface {
 		Data(string, *http.Request) (interface{}, error)

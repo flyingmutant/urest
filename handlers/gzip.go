@@ -3,14 +3,13 @@ package handlers
 import (
 	"compress/gzip"
 	"net/http"
-	"path"
 	"strings"
 )
 
 type (
 	gzipHandler struct {
-		checkExt bool
-		h        http.Handler
+		checkFunc func(*http.Request) bool
+		h         http.Handler
 	}
 
 	gzipResponseWriter struct {
@@ -19,28 +18,21 @@ type (
 	}
 )
 
-func NewGzipHandler(checkExt bool, h http.Handler) *gzipHandler {
+func NewGzipHandler(checkFunc func(*http.Request) bool, h http.Handler) *gzipHandler {
+	if checkFunc == nil {
+		checkFunc = func(*http.Request) bool { return true }
+	}
+
 	return &gzipHandler{
-		checkExt: checkExt,
-		h:        h,
+		checkFunc: checkFunc,
+		h:         h,
 	}
 }
 
 func (h *gzipHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	toGzip := true
-	if h.checkExt {
-		toGzip = false
-		for _, ext := range []string{".html", ".css", ".js", ".map", ".yml", ".xml", ".json", ".txt", ".md", ".csv", ".svg"} {
-			if path.Ext(r.URL.Path) == ext {
-				toGzip = true
-				break
-			}
-		}
-	}
-
 	w.Header().Set("Vary", "Accept-Encoding")
 
-	if !toGzip || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+	if !h.checkFunc(r) || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		h.h.ServeHTTP(w, r)
 	} else {
 		w.Header().Set("Content-Encoding", "gzip")

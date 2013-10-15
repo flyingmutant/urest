@@ -17,7 +17,17 @@ type (
 )
 
 func NewStaticHandler(basePath string, urlPrefix string) http.Handler {
-	return NewGzipHandler(true, &staticHandler{
+	checkFunc := func(r *http.Request) bool {
+		exts := []string{".html", ".css", ".js", ".map", ".yml", ".xml", ".json", ".txt", ".md", ".csv", ".svg"}
+		for _, ext := range exts {
+			if path.Ext(r.URL.Path) == ext {
+				return true
+			}
+		}
+		return false
+	}
+
+	return NewGzipHandler(checkFunc, &staticHandler{
 		basePath:  basePath,
 		urlPrefix: urlPrefix,
 	})

@@ -22,7 +22,7 @@ func NewAppHandler(templatePath string, reloadTemplate bool, templateDataFunc fu
 		t = parseTemplate(templatePath)
 	}
 
-	return NewGzipHandler(false, &appHandler{
+	return NewGzipHandler(nil, &appHandler{
 		templatePath:     templatePath,
 		tpl:              t,
 		templateDataFunc: templateDataFunc,

@@ -10,12 +10,18 @@ type (
 	TransparentResponseWriter struct {
 		http.ResponseWriter
 		Status int
+		Size   int
 	}
 )
 
 func (w *TransparentResponseWriter) WriteHeader(status int) {
 	w.Status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *TransparentResponseWriter) Write(data []byte) (int, error) {
+	w.Size += len(data)
+	return w.ResponseWriter.Write(data)
 }
 
 func (w *TransparentResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {

@@ -18,7 +18,7 @@ func (h RedirectToNonWWWHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 
 	if !strings.HasPrefix(u.Host, "www.") {
-		h.ServeHTTP(w, r)
+		h.Handler.ServeHTTP(w, r)
 	} else {
 		if r.TLS == nil {
 			u.Scheme = "http"

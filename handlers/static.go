@@ -63,7 +63,7 @@ func (h StaticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Encoding", "gzip")
 		gz := gzip.NewWriter(w)
 		defer gz.Close()
-		http.ServeFile(GzipResponseWriter{gz, w}, r, p)
+		http.ServeFile(gzipResponseWriter{gz, w}, r, p)
 	}
 }
 

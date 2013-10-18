@@ -2,10 +2,8 @@ package urest
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -55,18 +53,6 @@ func NewHandler(res Resource, prefix string) *Handler {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if rec := recover(); rec != nil {
-			log.Printf("PANIC: %v", rec)
-			debug.PrintStack()
-			http.Error(w, fmt.Sprintf("Server panic: %v", rec), http.StatusInternalServerError)
-		}
-	}()
-
-	h.handle(w, r)
-}
-
-func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 	if h.res.Parent() != nil {
 		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(h.res)))
 	}

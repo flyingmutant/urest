@@ -79,13 +79,14 @@ func (h *loggingHandler) log(start time.Time, tw *TransparentResponseWriter, r *
 	}
 
 	methodC := colored(r.Method, _COLOR_BLUE)
+	requestURIC := colored(r.RequestURI, _COLOR_BOLD)
 
 	sizeS := ""
 	if tw.Size != 0 {
 		sizeS = fmt.Sprintf(", %v bytes", tw.Size)
 	}
 
-	h.l.Printf("[%v] %v %v (%v%v)", statusC, methodC, colored(r.RequestURI, _COLOR_BOLD), dtC, sizeS)
+	h.l.Printf("%v %v %v %v (%v%v)", statusC, r.RemoteAddr, methodC, requestURIC, dtC, sizeS)
 }
 
 func colored(s string, color string) string {

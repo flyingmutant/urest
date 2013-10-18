@@ -11,10 +11,6 @@ import (
 	"time"
 )
 
-var (
-	requestData = map[*http.Request]map[string]interface{}{}
-)
-
 type (
 	Resource interface {
 		Parent() Resource
@@ -50,17 +46,6 @@ type (
 	}
 )
 
-func SetRequestData(r *http.Request, name string, data interface{}) {
-	if _, ok := requestData[r]; !ok {
-		requestData[r] = map[string]interface{}{}
-	}
-	requestData[r][name] = data
-}
-
-func GetRequestData(r *http.Request, name string) interface{} {
-	return requestData[r][name]
-}
-
 func NewHandler(res Resource, prefix string) *Handler {
 	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
 		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
@@ -77,8 +62,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Server panic: %v", rec), http.StatusInternalServerError)
 		}
 	}()
-
-	defer delete(requestData, r)
 
 	h.handle(w, r)
 }

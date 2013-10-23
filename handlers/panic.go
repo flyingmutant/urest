@@ -16,7 +16,7 @@ type (
 func (h PanicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			var stack []byte
+			stack := make([]byte, 1024*32)
 			runtime.Stack(stack, false)
 			log.Printf("%v: %v\n%v", colored("PANIC", _COLOR_RED), rec, string(stack))
 			http.Error(w, fmt.Sprintf("Server panic: %v", rec), http.StatusInternalServerError)

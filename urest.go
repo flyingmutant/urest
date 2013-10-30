@@ -2,6 +2,7 @@ package urest
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -66,7 +67,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		steps = []string{}
 	}
 
-	ch, rest := navigate(h.res, steps, r)
+	ch, rest, err := navigate(h.res, steps, r)
+	if err != nil {
+		log.Printf("Navigation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if ch == nil {
 		if rest == nil {
 			u := *r.URL
@@ -101,13 +107,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handle(ch, postAction, h.prefix, w, r)
 }
 
-func navigate(res Resource, steps []string, r *http.Request) (Resource, []string) {
+func navigate(res Resource, steps []string, r *http.Request) (Resource, []string, error) {
 	if len(steps) == 0 {
 		if res.IsCollection() {
 			// collection URL without a trailing '/'
-			return nil, nil
+			return nil, nil, nil
 		} else {
-			return res, []string{}
+			return res, []string{}, nil
 		}
 	}
 
@@ -116,30 +122,30 @@ func navigate(res Resource, steps []string, r *http.Request) (Resource, []string
 
 	if head == "" {
 		if len(rest) != 0 {
-			panic("Empty non-last step during navigation")
+			return nil, nil, fmt.Errorf("Empty non-last step during navigation")
 		}
 
 		if res.IsCollection() {
 			// collection URL with a trailing '/'
-			return res, []string{}
+			return res, []string{}, nil
 		} else {
-			return nil, []string{""}
+			return nil, []string{""}, nil
 		}
 	}
 
 	if ch := res.Child(head, r); ch != nil {
 		if ch.PathSegment() != head {
-			panic(fmt.Sprintf("Resource '%v' has wrong path segment ('%v' / '%v')", relativeURL(ch), ch.PathSegment(), head))
+			return nil, nil, fmt.Errorf("Resource '%v' has wrong path segment ('%v' / '%v')", relativeURL(ch), ch.PathSegment(), head)
 		}
 		return navigate(ch, rest, r)
 	}
 
 	if len(rest) != 0 {
-		return nil, steps
+		return nil, steps, nil
 	}
 
 	// custom POST action
-	return res, []string{head}
+	return res, []string{head}, nil
 }
 
 func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {

@@ -29,5 +29,5 @@ func (w *TransparentResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error
 }
 
 func (w *TransparentResponseWriter) Success() bool {
-	return w.Status >= 200 && w.Status < 300
+	return w.Status == 0 || (w.Status >= 200 && w.Status < 300)
 }

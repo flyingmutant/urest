@@ -61,10 +61,9 @@ func (h *loggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	tw := &TransparentResponseWriter{w, http.StatusOK, 0}
+	defer h.log(start, tw, r)
 
 	h.h.ServeHTTP(tw, r)
-
-	h.log(start, tw, r)
 }
 
 func (h *loggingHandler) log(start time.Time, tw *TransparentResponseWriter, r *http.Request) {

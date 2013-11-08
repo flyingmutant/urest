@@ -46,8 +46,8 @@ type (
 )
 
 func NewHandler(res Resource, prefix string) *Handler {
-	if !strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") {
-		panic(fmt.Sprintf("Invalid prefix '%v'", prefix))
+	if !strings.HasPrefix(prefix, "/") {
+		log.Panicf("Invalid prefix '%v'", prefix)
 	}
 
 	return &Handler{res, prefix}
@@ -55,42 +55,19 @@ func NewHandler(res Resource, prefix string) *Handler {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.res.Parent() != nil {
-		panic(fmt.Sprintf("Resource '%v' is not a root of the resource tree", relativeURL(h.res)))
+		log.Panicf("Resource '%v' is not a root of the resource tree", relativeURL(h.res))
 	}
 
 	if r.URL.Path[:len(h.prefix)] != h.prefix {
-		panic(fmt.Sprintf("Prefix '%v' does not match request URL path '%v'", h.prefix, r.URL.Path))
+		log.Panicf("Prefix '%v' does not match request URL path '%v'", h.prefix, r.URL.Path)
 	}
 
 	steps := strings.Split(r.URL.Path[len(h.prefix):], "/")
-	if len(steps) == 1 && steps[0] == "" {
-		steps = []string{}
-	}
-
 	ch, rest, err := navigate(h.res, steps, r)
+
 	if err != nil {
 		log.Printf("Navigation failed: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if ch == nil {
-		if rest == nil {
-			u := *r.URL
-			u.Path += "/"
-			w.Header().Set("Location", u.String())
-			w.WriteHeader(http.StatusMovedPermanently)
-			return
-		}
-
-		if len(rest) == 1 && rest[0] == "" {
-			u := *r.URL
-			u.Path = u.Path[:len(u.Path)-1]
-			w.Header().Set("Location", u.String())
-			w.WriteHeader(http.StatusMovedPermanently)
-			return
-		}
-
-		http.NotFound(w, r)
 		return
 	}
 
@@ -99,8 +76,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		postAction = &rest[0]
 	}
 
-	if r.Method != "POST" && postAction != nil {
+	if postAction != nil && r.Method != "POST" {
 		http.NotFound(w, r)
+		return
+	}
+	if postAction == nil && RelativeURL(h.prefix, ch).Path != r.URL.Path {
+		w.Header().Set("Location", RelativeURL(h.prefix, ch).Path)
+		w.WriteHeader(http.StatusMovedPermanently)
 		return
 	}
 
@@ -109,28 +91,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func navigate(res Resource, steps []string, r *http.Request) (Resource, []string, error) {
 	if len(steps) == 0 {
-		if res.IsCollection() {
-			// collection URL without a trailing '/'
-			return nil, nil, nil
-		} else {
-			return res, []string{}, nil
-		}
+		return res, []string{}, nil
 	}
 
 	head := steps[0]
 	rest := steps[1:]
 
 	if head == "" {
-		if len(rest) != 0 {
-			return nil, nil, fmt.Errorf("Empty non-last step during navigation")
-		}
-
-		if res.IsCollection() {
-			// collection URL with a trailing '/'
-			return res, []string{}, nil
-		} else {
-			return nil, []string{""}, nil
-		}
+		return navigate(res, rest, r)
 	}
 
 	if ch := res.Child(head, r); ch != nil {
@@ -138,14 +106,12 @@ func navigate(res Resource, steps []string, r *http.Request) (Resource, []string
 			return nil, nil, fmt.Errorf("Resource '%v' has wrong path segment ('%v' / '%v')", relativeURL(ch), ch.PathSegment(), head)
 		}
 		return navigate(ch, rest, r)
+	} else {
+		if len(rest) != 0 {
+			return nil, nil, fmt.Errorf("Non-empty descendants of non-child node ('%v' / '%v')", head, rest)
+		}
+		return res, []string{head}, nil
 	}
-
-	if len(rest) != 0 {
-		return nil, steps, nil
-	}
-
-	// custom POST action
-	return res, []string{head}, nil
 }
 
 func handle(res Resource, postAction *string, prefix string, w http.ResponseWriter, r *http.Request) {
@@ -317,7 +283,10 @@ func AbsoluteURL(r *http.Request, prefix string, res Resource) *url.URL {
 
 func RelativeURL(prefix string, res Resource) *url.URL {
 	u := relativeURL(res)
-	u.Path = prefix[:len(prefix)-1] + u.Path
+	if strings.HasSuffix(prefix, "/") && strings.HasPrefix(u.Path, "/") {
+		prefix = prefix[:len(prefix)-1]
+	}
+	u.Path = prefix + u.Path
 	return u
 }
 

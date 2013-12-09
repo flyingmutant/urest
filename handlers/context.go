@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"sync"
 )
 
 type (
@@ -11,7 +12,8 @@ type (
 )
 
 var (
-	requestData = map[*http.Request]map[string]interface{}{}
+	requestData      = map[*http.Request]map[string]interface{}{}
+	requestDataMutex sync.Mutex
 )
 
 func (h WithContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -21,6 +23,9 @@ func (h WithContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func SetRequestData(r *http.Request, name string, data interface{}) {
+	requestDataMutex.Lock()
+	defer requestDataMutex.Unlock()
+
 	if _, ok := requestData[r]; !ok {
 		requestData[r] = map[string]interface{}{}
 	}
@@ -28,5 +33,8 @@ func SetRequestData(r *http.Request, name string, data interface{}) {
 }
 
 func GetRequestData(r *http.Request, name string) interface{} {
+	requestDataMutex.Lock()
+	defer requestDataMutex.Unlock()
+
 	return requestData[r][name]
 }

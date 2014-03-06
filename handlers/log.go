@@ -53,7 +53,10 @@ func (h *loggingHandler) log(start time.Time, tw *TransparentResponseWriter, r *
 	}
 
 	methodC := termcolor.Colorized(r.Method, termcolor.BLUE)
-	requestURIC := termcolor.Colorized(r.RequestURI, termcolor.BOLD)
+	requestURIC := termcolor.Colorized(r.URL.Path, termcolor.BOLD)
+	if r.URL.RawQuery != "" {
+		requestURIC += "?" + r.URL.RawQuery
+	}
 
 	sizeS := ""
 	if tw.Size != 0 {

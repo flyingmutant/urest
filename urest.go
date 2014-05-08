@@ -219,12 +219,6 @@ func etag(res Resource, r *http.Request) string {
 }
 
 func reportError(w http.ResponseWriter, err error) {
-	// XXX FIXME
-	if strings.HasPrefix(err.Error(), "+") {
-		w.Write([]byte(err.Error()[1:]))
-		return
-	}
-
 	errorCodes := []int{
 		http.StatusBadRequest,
 		http.StatusUnauthorized,

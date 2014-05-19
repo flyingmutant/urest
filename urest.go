@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -136,7 +135,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 
 		if e := res.Read(prefix, w, r); e != nil {
-			reportError(w, e)
+			ReportError(w, e)
 		}
 	case "POST":
 		if postAction != nil {
@@ -146,21 +145,21 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 			}
 
 			if e := res.Do(*postAction, r); e != nil {
-				reportError(w, e)
+				ReportError(w, e)
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 			}
 		} else {
 			if res.IsCollection() {
 				if ch, e := res.(Collection).Create(r); e != nil {
-					reportError(w, e)
+					ReportError(w, e)
 				} else {
 					w.Header().Set("Location", RelativeURL(prefix, ch).String())
 					w.WriteHeader(http.StatusCreated)
 				}
 			} else {
 				if e := res.Replace(r); e != nil {
-					reportError(w, e)
+					ReportError(w, e)
 				} else {
 					w.WriteHeader(http.StatusNoContent)
 				}
@@ -168,7 +167,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 	case "PATCH":
 		if e := res.Update(r); e != nil {
-			reportError(w, e)
+			ReportError(w, e)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
@@ -184,7 +183,7 @@ func handle(res Resource, postAction *string, prefix string, w http.ResponseWrit
 		}
 
 		if e := res.Parent().(Collection).Delete(res.PathSegment(), r); e != nil {
-			reportError(w, e)
+			ReportError(w, e)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
@@ -216,46 +215,6 @@ func etag(res Resource, r *http.Request) string {
 		res = res.Parent()
 	}
 	return ""
-}
-
-func reportError(w http.ResponseWriter, err error) {
-	errorCodes := []int{
-		http.StatusBadRequest,
-		http.StatusUnauthorized,
-		http.StatusPaymentRequired,
-		http.StatusForbidden,
-		http.StatusNotFound,
-		http.StatusMethodNotAllowed,
-		http.StatusNotAcceptable,
-		http.StatusProxyAuthRequired,
-		http.StatusRequestTimeout,
-		http.StatusConflict,
-		http.StatusGone,
-		http.StatusLengthRequired,
-		http.StatusPreconditionFailed,
-		http.StatusRequestEntityTooLarge,
-		http.StatusRequestURITooLong,
-		http.StatusUnsupportedMediaType,
-		http.StatusRequestedRangeNotSatisfiable,
-		http.StatusExpectationFailed,
-		http.StatusTeapot,
-
-		http.StatusInternalServerError,
-		http.StatusNotImplemented,
-		http.StatusBadGateway,
-		http.StatusServiceUnavailable,
-		http.StatusGatewayTimeout,
-		http.StatusHTTPVersionNotSupported,
-	}
-
-	e := err.Error()
-	for _, code := range errorCodes {
-		if strings.HasPrefix(e, strconv.Itoa(code)+" ") {
-			http.Error(w, e, code)
-			return
-		}
-	}
-	http.Error(w, e, http.StatusBadRequest)
 }
 
 func AbsoluteURL(r *http.Request, prefix string, res Resource) *url.URL {

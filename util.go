@@ -16,6 +16,25 @@ func IsSafeRequest(r *http.Request) bool {
 
 func ReportError(w http.ResponseWriter, err error) {
 	errorCodes := []int{
+		http.StatusContinue,
+		http.StatusSwitchingProtocols,
+
+		http.StatusOK,
+		http.StatusCreated,
+		http.StatusAccepted,
+		http.StatusNonAuthoritativeInfo,
+		http.StatusNoContent,
+		http.StatusResetContent,
+		http.StatusPartialContent,
+
+		http.StatusMultipleChoices,
+		http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusNotModified,
+		http.StatusUseProxy,
+		http.StatusTemporaryRedirect,
+
 		http.StatusBadRequest,
 		http.StatusUnauthorized,
 		http.StatusPaymentRequired,

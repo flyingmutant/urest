@@ -16,6 +16,11 @@ type (
 	}
 )
 
+const (
+	_SVG_SIG          = "<SVG"
+	_SVG_DETECT_BLOCK = 512
+)
+
 func NewStaticHandler(basePath string, urlPrefix string) http.Handler {
 	checkFunc := func(r *http.Request) bool {
 		exts := []string{".html", ".css", ".js", ".map", ".yml", ".xml", ".json", ".txt", ".md", ".csv", ".svg"}
@@ -57,7 +62,25 @@ func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
 
+	// ServeFile() sends 'text/xml; charset=utf-8' for SVG by default
+	if path.Ext(p) == "" && detectSVG(p) {
+		w.Header().Set("Content-Type", "image/svg+xml")
+	}
+
 	http.ServeFile(w, r, p)
+}
+
+func detectSVG(p string) bool {
+	f, err := os.Open(p)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	buf := make([]byte, _SVG_DETECT_BLOCK)
+	f.Read(buf)
+
+	return strings.Contains(strings.ToUpper(string(buf)), _SVG_SIG)
 }
 
 func isHiddenPath(p string) bool {

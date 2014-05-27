@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -25,7 +25,7 @@ func NewStaticHandler(basePath string, urlPrefix string) http.Handler {
 	checkFunc := func(r *http.Request) bool {
 		exts := []string{".html", ".css", ".js", ".map", ".yml", ".xml", ".json", ".txt", ".md", ".csv", ".svg"}
 		for _, ext := range exts {
-			if path.Ext(r.URL.Path) == ext {
+			if filepath.Ext(r.URL.Path) == ext {
 				return true
 			}
 		}
@@ -39,7 +39,7 @@ func NewStaticHandler(basePath string, urlPrefix string) http.Handler {
 }
 
 func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p := path.Join(h.basePath, r.URL.Path[len(h.urlPrefix):])
+	p := filepath.Join(h.basePath, r.URL.Path[len(h.urlPrefix):])
 
 	if isHiddenPath(p) {
 		http.NotFound(w, r)
@@ -63,7 +63,7 @@ func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ServeFile() sends 'text/xml; charset=utf-8' for SVG by default
-	if path.Ext(p) == "" && detectSVG(p) {
+	if filepath.Ext(p) == "" && detectSVG(p) {
 		w.Header().Set("Content-Type", "image/svg+xml")
 	}
 

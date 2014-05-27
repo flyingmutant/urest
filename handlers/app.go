@@ -3,7 +3,7 @@ package handlers
 import (
 	"html/template"
 	"net/http"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -49,7 +49,7 @@ func (h *appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func parseTemplate(templatePath string) *template.Template {
 	t := template.Must(template.New("").Delims("{{{", "}}}").ParseFiles(templatePath))
-	return t.Lookup(path.Base(templatePath))
+	return t.Lookup(filepath.Base(templatePath))
 }
 
 func isFromMSIE(r *http.Request) bool {

@@ -36,9 +36,19 @@ func (h *gzipHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.h.ServeHTTP(w, r)
 	} else {
 		w.Header().Set("Content-Encoding", "gzip")
+
 		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		h.h.ServeHTTP(gzipResponseWriter{gz, w}, r)
+		gzrw := &gzipResponseWriter{gz, w}
+		trrw := &TransparentResponseWriter{gzrw, 0, 0}
+
+		defer func() {
+			// for 304 case we should not send response body at all
+			if trrw.Status != http.StatusNotModified {
+				gz.Close()
+			}
+		}()
+
+		h.h.ServeHTTP(trrw, r)
 	}
 }
 

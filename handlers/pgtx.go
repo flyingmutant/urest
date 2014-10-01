@@ -3,9 +3,10 @@ package handlers
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
+
 	_ "github.com/lib/pq"
 	"github.com/sporttech/urest"
-	"net/http"
 )
 
 type (

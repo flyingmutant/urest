@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/sporttech/termcolor"
 	"log"
 	"net/http"
 	"runtime"
+
+	"github.com/sporttech/termcolor"
 )
 
 type (

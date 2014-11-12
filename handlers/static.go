@@ -13,6 +13,7 @@ type (
 	staticHandler struct {
 		basePath  string
 		urlPrefix string
+		useOnePix bool
 	}
 )
 
@@ -21,7 +22,7 @@ const (
 	_SVG_DETECT_BLOCK = 512
 )
 
-func NewStaticHandler(basePath string, urlPrefix string) http.Handler {
+func NewStaticHandler(basePath string, urlPrefix string, useOnePix bool) http.Handler {
 	checkFunc := func(r *http.Request) bool {
 		exts := []string{".html", ".css", ".js", ".map", ".yml", ".xml", ".json", ".txt", ".md", ".csv", ".svg"}
 		for _, ext := range exts {
@@ -35,6 +36,7 @@ func NewStaticHandler(basePath string, urlPrefix string) http.Handler {
 	return NewGzipHandler(checkFunc, &staticHandler{
 		basePath:  basePath,
 		urlPrefix: urlPrefix,
+		useOnePix: useOnePix,
 	})
 }
 
@@ -44,7 +46,14 @@ func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if isHiddenPath(p) {
 		http.NotFound(w, r)
 		return
-	} else if fi, err := os.Stat(p); err != nil || fi.IsDir() {
+	} else if fi, err := os.Stat(p); err != nil {
+		if h.useOnePix {
+			OnePxTransparentImageHandler(w, r)
+		} else {
+			http.NotFound(w, r)
+		}
+		return
+	} else if fi.IsDir() {
 		http.NotFound(w, r)
 		return
 	}

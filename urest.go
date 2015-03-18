@@ -200,7 +200,7 @@ func setHeaders(res Resource, w http.ResponseWriter, r *http.Request) {
 	if cc := res.CacheControl(); cc != "" {
 		w.Header().Set("Cache-Control", cc)
 	} else {
-		w.Header().Set("Cache-Control", "private, must-revalidate, max-age=0")
+		w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 	}
 	if et := etag(res, r); et != "" {
 		w.Header().Set("ETag", et)

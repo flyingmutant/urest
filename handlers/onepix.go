@@ -23,8 +23,12 @@ func init() {
 	}
 }
 
-func OnePxTransparentImageHandler(w http.ResponseWriter, r *http.Request) {
+func WriteOnePx(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Content-Length", strconv.Itoa(len(onePxBytes)))
 	w.Write(onePxBytes)
+}
+
+func OnePxTransparentImageHandler(w http.ResponseWriter, r *http.Request) {
+	WriteOnePx(w)
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"sync"
 
 	_ "github.com/lib/pq"
 	"github.com/sporttech/urest"
@@ -26,7 +27,8 @@ const (
 )
 
 var (
-	dbtxs = map[*http.Request]*dbtx{}
+	dbtxs      = map[*http.Request]*dbtx{}
+	dbtxsMutex sync.Mutex
 )
 
 func (h WithTxHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -37,27 +39,33 @@ func (h WithTxHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	dbtxs[r] = &dbtx{db, nil}
-	defer delete(dbtxs, r)
+	c := &dbtx{db, nil}
 
-	defer func() {
-		if tx := dbtxs[r].tx; tx != nil {
-			tx.Rollback()
-		}
-	}()
+	dbtxsMutex.Lock()
+	dbtxs[r] = c
+	dbtxsMutex.Unlock()
 
 	tw := &TransparentResponseWriter{w, 0, 0}
 	h.Handler.ServeHTTP(tw, r)
 
-	if tw.Success() && !urest.IsSafeRequest(r) {
-		if tx := dbtxs[r].tx; tx != nil {
-			tx.Commit()
+	if c.tx != nil {
+		if tw.Success() && !urest.IsSafeRequest(r) {
+			c.tx.Commit()
+		} else {
+			c.tx.Rollback()
 		}
 	}
+
+	dbtxsMutex.Lock()
+	delete(dbtxs, r)
+	dbtxsMutex.Unlock()
 }
 
 func Tx(r *http.Request) *sql.Tx {
+	dbtxsMutex.Lock()
 	c := dbtxs[r]
+	dbtxsMutex.Unlock()
+
 	if c.tx == nil {
 		if tx, err := c.db.Begin(); err != nil {
 			panic(err)

@@ -14,6 +14,7 @@ import (
 type (
 	DataResource interface {
 		Data(string, *http.Request) (interface{}, error)
+		LiveData(string, *http.Request) (interface{}, error)
 	}
 
 	RawReadResource interface {
@@ -52,7 +53,14 @@ func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
 	}
 
 	d.readRawFunc = func(prefix string, r *http.Request) ([]byte, error) {
-		data, err := del.Data(prefix, r)
+		isLive := GetRequestData(r,"livedata")
+		data := interface{}(nil)
+		err := error(nil)
+		if b, ok := isLive.(bool); ok && b {
+			data, err = del.LiveData(prefix, r)
+		} else {
+			data, err = del.Data(prefix, r)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -173,4 +181,8 @@ func (*DefaultResourceImpl) Create(*http.Request) (Resource, error) {
 
 func (*DefaultResourceImpl) Delete(string, *http.Request) error {
 	panic("Not implemented")
+}
+
+func (*DefaultResourceImpl) LiveData(string, *http.Request) (interface{}, error) {
+	return nil, nil
 }

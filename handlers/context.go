@@ -2,39 +2,21 @@ package handlers
 
 import (
 	"net/http"
-	"sync"
+	"github.com/sporttech/urest"
 )
 
-type (
-	WithContextHandler struct {
-		http.Handler
-	}
-)
-
-var (
-	requestData      = map[*http.Request]map[string]interface{}{}
-	requestDataMutex sync.Mutex
-)
+type WithContextHandler struct {
+	urest.WithContextHandler
+}
 
 func (h WithContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	defer delete(requestData, r)
-
-	h.Handler.ServeHTTP(w, r)
+	h.WithContextHandler.ServeHTTP(w,r)
 }
 
 func SetRequestData(r *http.Request, name string, data interface{}) {
-	requestDataMutex.Lock()
-	defer requestDataMutex.Unlock()
-
-	if _, ok := requestData[r]; !ok {
-		requestData[r] = map[string]interface{}{}
-	}
-	requestData[r][name] = data
+	urest.SetRequestData(r,name,data)
 }
 
 func GetRequestData(r *http.Request, name string) interface{} {
-	requestDataMutex.Lock()
-	defer requestDataMutex.Unlock()
-
-	return requestData[r][name]
+	return urest.GetRequestData(r, name)
 }

@@ -2,13 +2,15 @@ package urest
 
 import (
 	"bytes"
+	"bufio"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+	"log"
+ 	"github.com/francoispqt/gojay"
 )
 
 type (
@@ -67,7 +69,15 @@ func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
 		if data == nil {
 			return []byte{}, nil
 		}
-		return json.Marshal(data)
+		var b bytes.Buffer
+		iowriter := bufio.NewWriter(&b)
+		enc := gojay.NewEncoder(iowriter)
+		if err := enc.Encode(data); err != nil {
+			log.Printf("Error in json encoding: %v", err)
+			return []byte{},err
+
+		}
+		return b.Bytes(), nil
 	}
 }
 

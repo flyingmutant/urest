@@ -21,6 +21,11 @@ type (
 		ReadRaw(string, *http.Request) ([]byte, error)
 	}
 
+	CacheDelegate interface {
+		GetCache(string, *http.Request) []byte
+		SetCache(string, *http.Request, []byte)
+	}
+
 	DefaultResourceImpl struct {
 		readRawFunc     func(string, *http.Request) ([]byte, error)
 		Parent_         Resource
@@ -32,8 +37,10 @@ type (
 		ContentType_    string
 		Gzip            bool
 		CacheDuration   time.Duration
+		cache           CacheDelegate
 	}
 )
+
 
 func NewDefaultResourceImpl(parent Resource, pathSegment string) *DefaultResourceImpl {
 	return &DefaultResourceImpl{
@@ -67,8 +74,13 @@ func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
 		if data == nil {
 			return []byte{}, nil
 		}
+
 		return json.Marshal(data)
 	}
+}
+
+func (d *DefaultResourceImpl) SetCacheDelegate(del CacheDelegate) {
+	d.cache = del
 }
 
 func (d *DefaultResourceImpl) SetRawReadDelegate(del RawReadResource) {
@@ -132,6 +144,20 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 		panic("Not implemented")
 	}
 
+	if d.cache != nil {
+		if val := d.cache.GetCache(urlPrefix, r); val != nil {
+			w.Header().Set("Vary", "Accept-Encoding")
+			if d.Gzip && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+				w.Header().Set("Content-Encoding", "gzip")
+				w.Header().Set("Content-Length", strconv.Itoa(len(val)))
+			} else {
+				w.Header().Set("Content-Length", strconv.Itoa(len(val)))
+			}
+			w.Write(val)
+			return nil
+		}
+	}
+
 	data, err := d.readRawFunc(urlPrefix, r)
 	if err != nil {
 		return err
@@ -147,9 +173,15 @@ func (d *DefaultResourceImpl) Read(urlPrefix string, w http.ResponseWriter, r *h
 		w.Header().Set("Content-Encoding", "gzip")
 		w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
 		w.Write(b.Bytes())
+		if d.cache != nil {
+			d.cache.SetCache(urlPrefix, r, b.Bytes())
+		}
 	} else {
 		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 		w.Write(data)
+		if d.cache != nil {
+			d.cache.SetCache(urlPrefix, r, data)
+		}
 	}
 
 	return nil

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/base64"
 )
 
 type (
@@ -75,7 +76,31 @@ func (d *DefaultResourceImpl) SetDataDelegate(del DataResource) {
 			return []byte{}, nil
 		}
 
-		return json.Marshal(data)
+		encoded, err := json.Marshal(data)
+		if err != nil {
+			return encoded, err
+		}
+
+		mayEncode := strings.Contains(r.RequestURI,"accept-b64-gzip=true")
+		if len(encoded) > 20 * 1024 && mayEncode {
+			var b bytes.Buffer
+			gz := gzip.NewWriter(&b)
+			if _, err = gz.Write([]byte(encoded)); err != nil {
+				return encoded, err
+			}
+			if err = gz.Close(); err != nil {
+				return  encoded, err
+			}
+
+			gzMessage := base64.StdEncoding.EncodeToString(b.Bytes())
+
+			b64gzipMessage := "BASE64/GZIP:" + gzMessage
+			if len(encoded) > len(b64gzipMessage) {
+				return []byte(b64gzipMessage), nil
+			}
+		}
+
+		return encoded, nil
 	}
 }
 
